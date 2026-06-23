@@ -1,0 +1,2611 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FlowStock AI — Sistema Multiagente de Gestión de Stock</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+  *, *::before, *::after { box-sizing: border-box; }
+  body { background:#09090b; color:#fafafa; font-family:'Inter',system-ui,sans-serif; margin:0; overflow:hidden; height:100vh; }
+  .sidebar { width:220px; min-width:220px; background:#09090b; border-right:1px solid #27272a; height:100vh; overflow-y:auto; }
+  .main { flex:1; height:100vh; overflow-y:auto; }
+  .card { background:#18181b; border:1px solid #27272a; border-radius:12px; }
+  .card-sm { background:#18181b; border:1px solid #27272a; border-radius:8px; }
+  .nav-item { cursor:pointer; transition:all .15s; border-radius:8px; padding:8px 12px; display:flex; align-items:center; gap:10px; font-size:14px; color:#a1a1aa; }
+  .nav-item:hover { background:#27272a; color:#fafafa; }
+  .nav-item.active { background:#1e1b4b; color:#818cf8; }
+  .view { display:none !important; }
+  .view.active { display:block !important; }
+  .badge { display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:9999px; font-size:11px; font-weight:600; letter-spacing:.02em; }
+  .badge-green { background:rgba(34,197,94,.12); color:#4ade80; border:1px solid rgba(34,197,94,.2); }
+  .badge-yellow { background:rgba(234,179,8,.12); color:#facc15; border:1px solid rgba(234,179,8,.2); }
+  .badge-red { background:rgba(239,68,68,.12); color:#f87171; border:1px solid rgba(239,68,68,.2); }
+  .badge-blue { background:rgba(99,102,241,.12); color:#818cf8; border:1px solid rgba(99,102,241,.2); }
+  .badge-gray { background:rgba(113,113,122,.12); color:#a1a1aa; border:1px solid rgba(113,113,122,.2); }
+  .badge-orange { background:rgba(249,115,22,.12); color:#fb923c; border:1px solid rgba(249,115,22,.2); }
+  .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .dot-green { background:#4ade80; box-shadow:0 0 6px #4ade80; animation:pulseG 2s infinite; }
+  .dot-yellow { background:#facc15; box-shadow:0 0 6px #facc15; animation:pulseY 2s infinite; }
+  .dot-red { background:#f87171; box-shadow:0 0 8px #f87171; animation:pulseR 1s infinite; }
+  .dot-gray { background:#71717a; }
+  .dot-blue { background:#818cf8; box-shadow:0 0 6px #818cf8; animation:pulseB 2s infinite; }
+  @keyframes pulseG{0%,100%{box-shadow:0 0 0 0 rgba(74,222,128,.5)}50%{box-shadow:0 0 0 5px rgba(74,222,128,0)}}
+  @keyframes pulseY{0%,100%{box-shadow:0 0 0 0 rgba(250,204,21,.5)}50%{box-shadow:0 0 0 5px rgba(250,204,21,0)}}
+  @keyframes pulseR{0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,.6)}50%{box-shadow:0 0 0 7px rgba(248,113,113,0)}}
+  @keyframes pulseB{0%,100%{box-shadow:0 0 0 0 rgba(129,140,248,.4)}50%{box-shadow:0 0 0 5px rgba(129,140,248,0)}}
+  .progress-track { background:#27272a; border-radius:9999px; height:6px; overflow:hidden; }
+  .progress-fill { height:100%; border-radius:9999px; transition:width 1s ease; }
+  .stat-card { background:#18181b; border:1px solid #27272a; border-radius:12px; padding:20px; transition:all .2s; }
+  .stat-card:hover { border-color:#3f3f46; }
+  .agent-card { background:#18181b; border:1px solid #27272a; border-radius:12px; padding:20px; transition:all .25s; cursor:default; }
+  .agent-card:hover { border-color:#6366f1; transform:translateY(-2px); box-shadow:0 8px 24px rgba(99,102,241,.12); }
+  .btn-primary { background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff; border:none; border-radius:8px; padding:8px 16px; font-size:13px; font-weight:600; cursor:pointer; transition:all .2s; }
+  .btn-primary:hover { opacity:.9; transform:translateY(-1px); }
+  .btn-green { background:rgba(34,197,94,.12); color:#4ade80; border:1px solid rgba(34,197,94,.3); border-radius:8px; padding:6px 14px; font-size:12px; font-weight:600; cursor:pointer; transition:all .2s; }
+  .btn-green:hover { background:rgba(34,197,94,.2); }
+  .btn-red { background:rgba(239,68,68,.12); color:#f87171; border:1px solid rgba(239,68,68,.3); border-radius:8px; padding:6px 14px; font-size:12px; font-weight:600; cursor:pointer; transition:all .2s; }
+  .btn-red:hover { background:rgba(239,68,68,.2); }
+  .btn-scenario { background:#18181b; border:1px solid #27272a; border-radius:10px; padding:14px 18px; cursor:pointer; transition:all .2s; text-align:left; width:100%; }
+  .btn-scenario:hover { border-color:#6366f1; background:#1e1b4b20; }
+  .btn-scenario.running { border-color:#6366f1; background:#1e1b4b; }
+  .toast-container { position:fixed; bottom:24px; right:24px; z-index:9999; display:flex; flex-direction:column-reverse; gap:8px; }
+  .toast { background:#18181b; border:1px solid #27272a; border-radius:10px; padding:12px 16px; font-size:13px; min-width:280px; box-shadow:0 8px 32px rgba(0,0,0,.4); transform:translateX(110%); transition:transform .3s ease; display:flex; align-items:center; gap:10px; }
+  .toast.show { transform:translateX(0); }
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:8000; display:none; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
+  .modal-overlay.show { display:flex; }
+  .flow-step { opacity:0; transform:translateY(8px); transition:all .4s ease; }
+  .flow-step.appear { opacity:1; transform:translateY(0); }
+  .number-animate { transition:all .6s ease; }
+  ::-webkit-scrollbar { width:4px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:#3f3f46; border-radius:4px; }
+  .gradient-text { background:linear-gradient(135deg,#818cf8,#a78bfa); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .table-row:hover { background:#1f1f23; }
+  .alert-item { border-radius:10px; padding:14px 16px; border-left:3px solid; margin-bottom:8px; transition:all .2s; }
+  .alert-critical { background:rgba(239,68,68,.06); border-color:#f87171; }
+  .alert-warning { background:rgba(234,179,8,.06); border-color:#facc15; }
+  .alert-info { background:rgba(99,102,241,.06); border-color:#818cf8; }
+  .pipeline-node { display:flex; flex-direction:column; align-items:center; gap:6px; min-width:90px; }
+  .pipeline-icon { width:44px; height:44px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; border:2px solid #27272a; background:#18181b; transition:all .5s; }
+  .pipeline-icon.active { border-color:#6366f1; background:#1e1b4b; box-shadow:0 0 16px rgba(99,102,241,.3); }
+  .pipeline-icon.done { border-color:#4ade80; background:rgba(34,197,94,.1); }
+  .pipeline-icon.warn { border-color:#facc15; background:rgba(234,179,8,.1); }
+  .pipeline-arrow { flex:1; height:2px; background:#27272a; position:relative; margin-top:22px; min-width:20px; }
+  .pipeline-arrow.active { background:linear-gradient(90deg,#6366f1,#8b5cf6); }
+  .log-entry { font-family:'Courier New',monospace; font-size:12px; padding:4px 8px; border-radius:4px; margin-bottom:2px; }
+  .log-info { color:#818cf8; }
+  .log-warn { color:#facc15; }
+  .log-error { color:#f87171; }
+  .log-success { color:#4ade80; }
+  .log-gray { color:#71717a; }
+  .hitl-card { background:linear-gradient(135deg,rgba(234,179,8,.08),rgba(249,115,22,.08)); border:1px solid rgba(234,179,8,.3); border-radius:12px; padding:20px; }
+  /* ── Campaign & Simulation styles ── */
+  .badge-teal { background:rgba(20,184,166,.12); color:#2dd4bf; border:1px solid rgba(20,184,166,.2); }
+  .badge-rose { background:rgba(244,63,94,.12); color:#fb7185; border:1px solid rgba(244,63,94,.2); }
+  .op-state { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:6px; font-size:11px; font-weight:700; letter-spacing:.03em; }
+  .op-stable   { background:rgba(34,197,94,.1);  color:#4ade80; border:1px solid rgba(34,197,94,.25); }
+  .op-risk     { background:rgba(234,179,8,.1);  color:#fbbf24; border:1px solid rgba(234,179,8,.25); }
+  .op-critical { background:rgba(239,68,68,.1);  color:#f87171; border:1px solid rgba(239,68,68,.25); }
+  .op-capacity { background:rgba(249,115,22,.1); color:#fb923c; border:1px solid rgba(249,115,22,.25); }
+  .op-replenishment { background:rgba(99,102,241,.1); color:#818cf8; border:1px solid rgba(99,102,241,.25); }
+  .camp-card { background:#18181b; border:1px solid #27272a; border-radius:12px; padding:18px 20px; transition:all .2s; }
+  .camp-card:hover { border-color:#3f3f46; }
+  .camp-card.active-camp { border-color:rgba(99,102,241,.5); background:rgba(99,102,241,.04); }
+  .input-dark { background:#0d0d0f; border:1px solid #27272a; border-radius:8px; padding:7px 11px; font-size:12px; color:#fafafa; font-family:'Inter',system-ui,sans-serif; width:100%; transition:border-color .2s; }
+  .input-dark:focus { outline:none; border-color:#6366f1; }
+  .input-dark::placeholder { color:#52525b; }
+  .sim-result-card { background:#18181b; border:1px solid #27272a; border-radius:12px; padding:20px; }
+  .sim-result-card .val { font-size:26px; font-weight:700; line-height:1; margin:6px 0 4px; }
+  .sim-result-card .lbl { font-size:11px; color:#71717a; }
+  .sim-result-card .sub { font-size:11px; color:#52525b; margin-top:2px; }
+  .rec-box { border-radius:10px; padding:14px 16px; border-left:4px solid; margin-top:4px; }
+  .rec-go    { background:rgba(34,197,94,.07);  border-color:#4ade80; }
+  .rec-warn  { background:rgba(234,179,8,.07);  border-color:#fbbf24; }
+  .rec-stop  { background:rgba(239,68,68,.07);  border-color:#f87171; }
+  .modal-camp { position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:9000; display:none; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
+  .modal-camp.show { display:flex; }
+</style>
+</head>
+<body class="flex">
+
+<!-- SIDEBAR -->
+<aside class="sidebar flex flex-col p-4 gap-1 flex-shrink-0">
+  <!-- Logo -->
+  <div class="mb-6 px-2">
+    <div class="flex items-center gap-2 mb-1">
+      <div style="width:28px;height:28px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px;">⚡</div>
+      <span class="font-bold text-sm gradient-text">FlowStock AI</span>
+    </div>
+    <div class="text-xs text-zinc-600 px-1">Sistema Multiagente v2.1</div>
+  </div>
+
+  <div class="text-xs font-semibold text-zinc-600 uppercase tracking-widest px-2 mb-1">Sistema</div>
+  <div class="nav-item active" onclick="navigate('dashboard')" id="nav-dashboard">
+    <span>📊</span> Dashboard
+  </div>
+  <div class="nav-item" onclick="navigate('agents')" id="nav-agents">
+    <span>🤖</span> Agentes
+  </div>
+  <div class="nav-item" onclick="navigate('simulator')" id="nav-simulator">
+    <span>⚗️</span> Simulador
+  </div>
+  <div class="nav-item" onclick="navigate('campaigns')" id="nav-campaigns">
+    <span>📣</span> Campañas
+    <span id="campaigns-badge" class="ml-auto badge badge-blue" style="display:none;">0</span>
+  </div>
+
+  <div class="text-xs font-semibold text-zinc-600 uppercase tracking-widest px-2 mb-1 mt-4">Operaciones</div>
+  <div class="nav-item" onclick="navigate('decisions')" id="nav-decisions">
+    <span>📋</span> Decisiones
+    <span id="hitl-badge" class="ml-auto badge badge-yellow" style="display:none;">2</span>
+  </div>
+  <div class="nav-item" onclick="navigate('alerts')" id="nav-alerts">
+    <span>🔔</span> Alertas
+    <span id="alerts-badge" class="ml-auto badge badge-red">3</span>
+  </div>
+  <div class="nav-item" onclick="navigate('audit')" id="nav-audit">
+    <span>📁</span> Auditoría
+  </div>
+
+  <div class="section-label" style="margin-top:16px;">Configuración</div>
+  <div class="nav-item" onclick="navigate('config')" id="nav-config">
+    <span>⚙️</span> Integrar empresa
+  </div>
+  <div class="mt-auto">
+    <div class="card-sm p-3 mt-4">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs text-zinc-500">Estado sistema</span>
+        <span class="badge badge-green" id="system-status-badge">Online</span>
+      </div>
+      <div class="flex items-center gap-2 text-xs text-zinc-500">
+        <div class="dot dot-green"></div>
+        <span id="system-clock">--:--:--</span>
+      </div>
+      <div class="mt-2 text-xs text-zinc-600">
+        <span id="cb-status">0 circuit breakers activos</span>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <!-- TOP BAR -->
+  <div style="background:#09090b;border-bottom:1px solid #27272a;padding:0 28px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;">
+    <div>
+      <h1 id="view-title" class="font-semibold text-sm text-zinc-100">Dashboard General</h1>
+      <p id="view-subtitle" class="text-xs text-zinc-500">Visión en tiempo real del sistema multiagente</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 text-xs text-zinc-500">
+        <div class="dot dot-blue"></div>
+        <span>7 SKUs críticos</span>
+      </div>
+      <div style="width:1px;height:20px;background:#27272a;"></div>
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-zinc-500">Automatización</span>
+        <span class="badge badge-blue" id="automation-badge">78%</span>
+      </div>
+      <div style="width:1px;height:20px;background:#27272a;"></div>
+      <button class="btn-primary text-xs" onclick="navigate('simulator')">⚗️ Simular escenario</button>
+    </div>
+  </div>
+
+  <!-- CONTENT AREA -->
+  <div style="padding:24px 28px;">
+
+    <!-- ==================== DASHBOARD VIEW ==================== -->
+    <div id="view-dashboard" class="view active">
+
+      <!-- KPI ROW -->
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:20px;">
+        <div class="stat-card">
+          <div class="text-xs text-zinc-500 mb-1">Fill Rate</div>
+          <div class="text-2xl font-bold text-green-400 number-animate" id="kpi-fillrate">96.8%</div>
+          <div class="text-xs text-zinc-600 mt-1">▲ +9.2% vs manual</div>
+          <div class="progress-track mt-2"><div class="progress-fill bg-green-500" id="bar-fillrate" style="width:97%"></div></div>
+        </div>
+        <div class="stat-card">
+          <div class="text-xs text-zinc-500 mb-1">MAPE Forecast</div>
+          <div class="text-2xl font-bold text-blue-400 number-animate" id="kpi-mape">18.4%</div>
+          <div class="text-xs text-zinc-600 mt-1">▼ -26.6pp vs manual</div>
+          <div class="progress-track mt-2"><div class="progress-fill" style="width:82%;background:#818cf8;"></div></div>
+        </div>
+        <div class="stat-card">
+          <div class="text-xs text-zinc-500 mb-1">SKUs críticos</div>
+          <div class="text-2xl font-bold text-red-400 number-animate" id="kpi-critical">3</div>
+          <div class="text-xs text-zinc-600 mt-1">De 187 SKUs activos</div>
+          <div class="progress-track mt-2"><div class="progress-fill bg-red-500" style="width:16%"></div></div>
+        </div>
+        <div class="stat-card">
+          <div class="text-xs text-zinc-500 mb-1">Órdenes auto hoy</div>
+          <div class="text-2xl font-bold text-purple-400 number-animate" id="kpi-orders">12</div>
+          <div class="text-xs text-zinc-600 mt-1">2 pendientes HITL</div>
+          <div class="progress-track mt-2"><div class="progress-fill" style="width:85%;background:#a78bfa;"></div></div>
+        </div>
+        <div class="stat-card">
+          <div class="text-xs text-zinc-500 mb-1">Ahorro estimado</div>
+          <div class="text-2xl font-bold text-emerald-400 number-animate" id="kpi-savings">$284K</div>
+          <div class="text-xs text-zinc-600 mt-1">Acumulado 2026</div>
+          <div class="progress-track mt-2"><div class="progress-fill bg-emerald-500" style="width:71%"></div></div>
+        </div>
+        <div class="stat-card">
+          <div class="text-xs text-zinc-500 mb-1">Costo IA/mes</div>
+          <div class="text-2xl font-bold text-zinc-300 number-animate" id="kpi-cost">$1.128</div>
+          <div class="text-xs text-zinc-600 mt-1">OPEX mensual</div>
+          <div class="progress-track mt-2"><div class="progress-fill bg-zinc-500" style="width:30%"></div></div>
+        </div>
+      </div>
+
+      <!-- CHARTS ROW -->
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:20px;">
+        <div class="card p-5">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <div class="font-semibold text-sm">Pronóstico de Demanda</div>
+              <div class="text-xs text-zinc-500">COL-001 · Colchón Premium King · 30 días</div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span style="width:10px;height:3px;background:#818cf8;border-radius:2px;display:inline-block;"></span><span class="text-xs text-zinc-500">Real</span>
+              <span style="width:10px;height:3px;background:#22d3ee;border-radius:2px;display:inline-block;margin-left:8px;"></span><span class="text-xs text-zinc-500">Forecast</span>
+              <span style="width:10px;height:3px;background:rgba(129,140,248,.3);border-radius:2px;display:inline-block;margin-left:8px;"></span><span class="text-xs text-zinc-500">P10-P90</span>
+            </div>
+          </div>
+          <canvas id="forecastChart" height="90"></canvas>
+        </div>
+        <div class="card p-5">
+          <div class="font-semibold text-sm mb-1">Stock vs. Stock de Seguridad</div>
+          <div class="text-xs text-zinc-500 mb-4">Top SKUs por riesgo</div>
+          <div style="position:relative;height:210px;">
+            <canvas id="stockChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- AGENTS MINI + ALERTS ROW -->
+      <div style="display:grid;grid-template-columns:3fr 2fr;gap:16px;">
+        <div class="card p-5">
+          <div class="flex items-center justify-between mb-4">
+            <div class="font-semibold text-sm">Estado de Agentes</div>
+            <button class="text-xs text-indigo-400 hover:text-indigo-300" onclick="navigate('agents')">Ver todos →</button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;" id="agents-mini">
+            <!-- populated by JS -->
+          </div>
+        </div>
+        <div class="card p-5">
+          <div class="flex items-center justify-between mb-4">
+            <div class="font-semibold text-sm">Alertas activas</div>
+            <button class="text-xs text-indigo-400 hover:text-indigo-300" onclick="navigate('alerts')">Ver todas →</button>
+          </div>
+          <div id="alerts-mini"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== AGENTS VIEW ==================== -->
+    <div id="view-agents" class="view">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;" id="agents-grid">
+        <!-- populated by JS -->
+      </div>
+      <!-- Automation levels -->
+      <div class="card p-6 mt-5">
+        <div class="font-semibold mb-4">Niveles de Automatización</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+          <div class="card-sm p-4">
+            <div class="flex items-center gap-2 mb-3">
+              <div style="width:36px;height:36px;background:rgba(34,197,94,.12);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;">🤖</div>
+              <div><div class="font-semibold text-sm">Nivel 1 — Autónomo</div><div class="text-xs text-zinc-500">Sin intervención humana</div></div>
+            </div>
+            <div class="text-xs text-zinc-400 mb-2">RS &lt; 0.30 · CS ≥ 0.65 · Valor &lt; $US 2.000</div>
+            <div class="space-y-1 text-xs text-zinc-500">
+              <div>✓ Generar pronósticos</div><div>✓ Actualizar stock seguridad</div>
+              <div>✓ Clasificar alertas INFO</div><div>✓ Re-entrenar modelos</div>
+            </div>
+            <div class="badge badge-green mt-3">78% de acciones</div>
+          </div>
+          <div class="card-sm p-4">
+            <div class="flex items-center gap-2 mb-3">
+              <div style="width:36px;height:36px;background:rgba(234,179,8,.12);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;">⚠️</div>
+              <div><div class="font-semibold text-sm">Nivel 2 — Semiautomático</div><div class="text-xs text-zinc-500">Director aprueba, humano informado</div></div>
+            </div>
+            <div class="text-xs text-zinc-400 mb-2">RS 0.30–0.60 · $US 2K–5K · CS 0.50–0.65</div>
+            <div class="space-y-1 text-xs text-zinc-500">
+              <div>✓ Órdenes producción ≤ $US 5K</div><div>✓ Alertas WARNING con acción</div>
+              <div>✓ Priorizar SKUs con restricción</div><div>✓ Actualizar plan (desvío &lt;20%)</div>
+            </div>
+            <div class="badge badge-yellow mt-3">14% de acciones</div>
+          </div>
+          <div class="card-sm p-4">
+            <div class="flex items-center gap-2 mb-3">
+              <div style="width:36px;height:36px;background:rgba(239,68,68,.12);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;">👤</div>
+              <div><div class="font-semibold text-sm">Nivel 3 — Humano obligatorio</div><div class="text-xs text-zinc-500">Aprobación humana siempre</div></div>
+            </div>
+            <div class="text-xs text-zinc-400 mb-2">RS &gt; 0.60 · Valor &gt; $US 5K · Irreversible</div>
+            <div class="space-y-1 text-xs text-zinc-500">
+              <div>✗ Toda orden de importación</div><div>✗ Producción &gt; $US 5K</div>
+              <div>✗ Alertas CRITICAL (stock = 0)</div><div>✗ Campañas sin histórico</div>
+            </div>
+            <div class="badge badge-red mt-3">8% de acciones</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== SIMULATOR VIEW ==================== -->
+    <div id="view-simulator" class="view">
+
+      <!-- Explainer banner -->
+      <div style="background:rgba(99,102,241,.07);border:1px solid rgba(99,102,241,.2);border-radius:12px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:flex-start;gap:14px;">
+        <span style="font-size:22px;flex-shrink:0;">⚗️</span>
+        <div>
+          <div style="font-weight:600;font-size:14px;margin-bottom:4px;">¿Para qué sirve el Simulador?</div>
+          <div style="font-size:12px;color:#a1a1aa;line-height:1.7;">
+            Acá podés ver <strong style="color:#fafafa;">cómo reacciona el sistema agéntico</strong> ante distintas situaciones reales de negocio antes de que sucedan.<br>
+            Elegí un <strong style="color:#fafafa;">escenario predefinido</strong> (ej: qué pasa si arranca un Hot Sale) y vas a ver en tiempo real cómo cada agente analiza, decide y escala la información.<br>
+            O ingresá tus propios datos en la <strong style="color:#fafafa;">simulación personalizada</strong> para calcular cuánto stock necesitás para una campaña específica.
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+        <!-- LEFT: scenarios + custom sim -->
+        <div>
+          <div class="font-semibold text-sm text-zinc-400 mb-3 uppercase tracking-widest text-xs">Escenarios predefinidos</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <button class="btn-scenario" id="btn-sc1" onclick="runScenario('campaign')">
+              <div class="flex items-center gap-3"><span style="font-size:22px;">🚀</span><div><div class="font-semibold text-sm">Lanzar campaña agresiva</div><div class="text-xs text-zinc-500">Hot Sale · Presupuesto pauta ×3 · Demanda esperada +180%</div></div></div>
+            </button>
+            <button class="btn-scenario" id="btn-sc2" onclick="runScenario('supplier')">
+              <div class="flex items-center gap-3"><span style="font-size:22px;">🚢</span><div><div class="font-semibold text-sm">Simular retraso proveedor</div><div class="text-xs text-zinc-500">Proveedor importado · Demora 8 días · SKU IMP-023</div></div></div>
+            </button>
+            <button class="btn-scenario" id="btn-sc3" onclick="runScenario('budget')">
+              <div class="flex items-center gap-3"><span style="font-size:22px;">📈</span><div><div class="font-semibold text-sm">Aumentar presupuesto marketing</div><div class="text-xs text-zinc-500">Budget ×2 a T-2 días · Capacidad ajustada</div></div></div>
+            </button>
+            <button class="btn-scenario" id="btn-sc4" onclick="runScenario('demand_drop')">
+              <div class="flex items-center gap-3"><span style="font-size:22px;">📉</span><div><div class="font-semibold text-sm">Caída inesperada de demanda</div><div class="text-xs text-zinc-500">Demanda real -55% · Sobrestock inminente</div></div></div>
+            </button>
+          </div>
+
+          <div style="border-top:1px solid #27272a;margin:16px 0;"></div>
+          <div class="font-semibold text-sm text-zinc-400 mb-3 uppercase tracking-widest text-xs">Calculadora de stock para campaña</div>
+          <div class="card p-4" style="display:flex;flex-direction:column;gap:12px;">
+
+            <!-- Campaign selector -->
+            <div>
+              <label style="font-size:10px;color:#71717a;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Campaña (opcional — autocompletá los datos)</label>
+              <select class="input-dark" id="sim-camp-select" onchange="simLoadCampaign()">
+                <option value="">— Ingresar datos manualmente —</option>
+              </select>
+              <div id="sim-camp-hint" style="font-size:10px;color:#52525b;margin-top:4px;display:none;">
+                Datos cargados desde la campaña. Podés editarlos antes de calcular.
+              </div>
+            </div>
+
+            <!-- SKU + stock -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <div>
+                <label style="font-size:10px;color:#71717a;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em;">SKU a simular</label>
+                <select class="input-dark" id="sim-sku-select" onchange="simAutoGrowth()">
+                  <option value="COL-001">COL-001 · Colchón Premium King</option>
+                  <option value="COL-002">COL-002 · Colchón Doble Pillow</option>
+                  <option value="TEX-007">TEX-007 · Set Sábanas 400H</option>
+                  <option value="TEX-012">TEX-012 · Almohada Memory Foam</option>
+                  <option value="IMP-023">IMP-023 · Smart TV 55" 4K</option>
+                  <option value="IMP-031">IMP-031 · Heladera NoFrost 400L</option>
+                  <option value="TEX-019">TEX-019 · Frazada Polar XL</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:10px;color:#71717a;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em;">Stock actual (unidades)</label>
+                <input class="input-dark" id="sim-input-stock" type="number" placeholder="ej. 20" min="0"/>
+              </div>
+            </div>
+
+            <!-- Lead time removed: calculated automatically from capacity -->
+            <div>
+              <label style="font-size:10px;color:#71717a;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em;">Capacidad de producción (u/semana)</label>
+              <input class="input-dark" id="sim-input-cap" type="number" placeholder="ej. 70" min="1"/>
+            </div>
+
+            <!-- Duration + safety -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <div>
+                <label style="font-size:10px;color:#71717a;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em;">Duración de la campaña (días)</label>
+                <input class="input-dark" id="sim-input-duration" type="number" placeholder="ej. 5" min="1" max="365" onchange="simAutoGrowth()"/>
+              </div>
+              <div>
+                <label style="font-size:10px;color:#71717a;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em;">Días hasta inicio de campaña</label>
+                <input class="input-dark" id="sim-input-daysto" type="number" placeholder="ej. 10" min="0"/>
+              </div>
+            </div>
+
+            <!-- Growth — auto from history -->
+            <div>
+              <label style="font-size:10px;color:#71717a;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Crecimiento esperado (calculado por el sistema)</label>
+              <div id="sim-growth-display" style="background:#0d0d0f;border:1px solid #27272a;border-radius:8px;padding:10px 12px;font-size:12px;color:#71717a;">
+                — Seleccioná un SKU y duración para ver la proyección basada en historial
+              </div>
+              <input type="hidden" id="sim-input-growth" value="150"/>
+            </div>
+
+            <div>
+              <label style="font-size:10px;color:#71717a;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em;">Margen de seguridad de stock (%)</label>
+              <input class="input-dark" id="sim-input-safety" type="number" placeholder="ej. 20 (recomendado)" min="0" max="100" value="20"/>
+            </div>
+
+            <button class="btn-primary" style="width:100%;padding:10px;" onclick="runCustomSim()">⚡ Calcular plan operativo</button>
+          </div>
+
+          <!-- HITL card -->
+          <div id="hitl-approval-card" style="display:none;" class="hitl-card mt-4">
+            <div class="flex items-center gap-2 mb-3">
+              <span style="font-size:18px;">👤</span>
+              <div><div class="font-semibold text-sm text-yellow-300">Revisión humana requerida</div><div class="text-xs text-zinc-400">Human-in-the-loop activado</div></div>
+              <span class="badge badge-yellow ml-auto">Nivel 3</span>
+            </div>
+            <div id="hitl-details" class="text-xs text-zinc-300 mb-4"></div>
+            <div class="flex gap-2">
+              <button class="btn-green flex-1" onclick="hitlApprove()">✓ Aprobar orden</button>
+              <button class="btn-red flex-1" onclick="hitlReject()">✗ Rechazar</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card p-5">
+          <div class="font-semibold text-sm mb-4">Pipeline de decisión en tiempo real</div>
+          <div class="flex items-start gap-1 mb-5 overflow-x-auto pb-2" id="pipeline-container">
+            <div class="pipeline-node"><div class="pipeline-icon" id="pipe-event">📡</div><div class="text-xs text-zinc-500 text-center">Evento</div></div>
+            <div class="pipeline-arrow" id="arr-1"></div>
+            <div class="pipeline-node"><div class="pipeline-icon" id="pipe-forecast">🧠</div><div class="text-xs text-zinc-500 text-center">Forecast</div></div>
+            <div class="pipeline-arrow" id="arr-2"></div>
+            <div class="pipeline-node"><div class="pipeline-icon" id="pipe-planner">📐</div><div class="text-xs text-zinc-500 text-center">Planner</div></div>
+            <div class="pipeline-arrow" id="arr-3"></div>
+            <div class="pipeline-node"><div class="pipeline-icon" id="pipe-monitor">👁️</div><div class="text-xs text-zinc-500 text-center">Monitor</div></div>
+            <div class="pipeline-arrow" id="arr-4"></div>
+            <div class="pipeline-node"><div class="pipeline-icon" id="pipe-director">🎯</div><div class="text-xs text-zinc-500 text-center">Director</div></div>
+            <div class="pipeline-arrow" id="arr-5"></div>
+            <div class="pipeline-node"><div class="pipeline-icon" id="pipe-hitl">👤</div><div class="text-xs text-zinc-500 text-center">HITL?</div></div>
+            <div class="pipeline-arrow" id="arr-6"></div>
+            <div class="pipeline-node"><div class="pipeline-icon" id="pipe-exec">⚡</div><div class="text-xs text-zinc-500 text-center">Ejecutar</div></div>
+          </div>
+          <div>
+            <div class="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Log de eventos</div>
+            <div id="event-log" style="height:220px;overflow-y:auto;background:#0d0d0f;border-radius:8px;padding:10px;font-family:'Courier New',monospace;">
+              <div class="log-gray log-entry">[sistema] FlowStock AI v2.1 — en espera de eventos...</div>
+              <div class="log-gray log-entry">[sistema] Seleccioná un escenario o ingresá datos personalizados.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results section — improved layout -->
+      <div id="sim-results-section">
+        <!-- Predefined scenario metrics (existing) -->
+        <div id="sim-scenario-metrics" class="card p-5">
+          <div class="font-semibold text-sm mb-4">Métricas en vivo — Impacto del escenario</div>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;">
+            <div class="card-sm p-3 text-center"><div class="text-xs text-zinc-500 mb-1">Stock COL-001</div><div class="text-xl font-bold text-zinc-100" id="sim-stock">45u</div><div class="text-xs text-zinc-600" id="sim-stock-sub">SS: 30u · OK</div></div>
+            <div class="card-sm p-3 text-center"><div class="text-xs text-zinc-500 mb-1">Demanda forecast</div><div class="text-xl font-bold text-blue-400" id="sim-demand">120u</div><div class="text-xs text-zinc-600" id="sim-demand-sub">Próximos 14 días</div></div>
+            <div class="card-sm p-3 text-center"><div class="text-xs text-zinc-500 mb-1">Aprobación requerida</div><div class="text-xl font-bold" id="sim-risk" style="color:#4ade80">—</div><div class="text-xs text-zinc-600" id="sim-risk-sub">en espera</div></div>
+            <div class="card-sm p-3 text-center"><div class="text-xs text-zinc-500 mb-1">Confidence Score</div><div class="text-xl font-bold text-purple-400" id="sim-cs">0.82</div><div class="text-xs text-zinc-600" id="sim-cs-sub">Alta confianza</div></div>
+            <div class="card-sm p-3 text-center"><div class="text-xs text-zinc-500 mb-1">Orden sugerida</div><div class="text-xl font-bold text-zinc-100" id="sim-order">—</div><div class="text-xs text-zinc-600" id="sim-order-sub">En espera</div></div>
+          </div>
+        </div>
+
+        <!-- Custom sim results (hidden until calc) -->
+        <div id="sim-custom-results" style="display:none;margin-top:16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div class="font-semibold text-sm" id="sim-custom-title">Análisis operativo —</div>
+            <div id="sim-custom-opstate"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:12px;">
+            <div class="sim-result-card">
+              <div class="lbl">Demanda estimada</div>
+              <div class="val text-blue-400" id="res-demand">—</div>
+              <div class="sub" id="res-demand-sub">calculada por modelo</div>
+            </div>
+            <div class="sim-result-card">
+              <div class="lbl">Stock requerido</div>
+              <div class="val text-purple-400" id="res-required">—</div>
+              <div class="sub" id="res-required-sub">incl. stock seguridad</div>
+            </div>
+            <div class="sim-result-card">
+              <div class="lbl">Riesgo de quiebre</div>
+              <div class="val" id="res-breakrisk">—</div>
+              <div class="sub" id="res-breakrisk-sub">probabilidad</div>
+            </div>
+            <div class="sim-result-card">
+              <div class="lbl">Días producción</div>
+              <div class="val text-amber-400" id="res-proddays">—</div>
+              <div class="sub" id="res-proddays-sub">para cubrir déficit</div>
+            </div>
+            <div class="sim-result-card">
+              <div class="lbl">Cobertura actual</div>
+              <div class="val" id="res-coverage">—</div>
+              <div class="sub" id="res-coverage-sub">días con stock actual</div>
+            </div>
+            <div class="sim-result-card">
+              <div class="lbl">Orden sugerida</div>
+              <div class="val text-zinc-100" id="res-order">—</div>
+              <div class="sub" id="res-order-sub">unidades a producir</div>
+            </div>
+          </div>
+          <div class="rec-box" id="res-rec-box">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:20px;" id="res-rec-icon">—</span>
+              <div>
+                <div style="font-size:13px;font-weight:600;margin-bottom:2px;" id="res-rec-title">—</div>
+                <div style="font-size:12px;color:#a1a1aa;" id="res-rec-body">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== CAMPAIGNS VIEW ==================== -->
+    <div id="view-campaigns" class="view">
+      <!-- Toolbar -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span id="camp-count-active" class="badge badge-green">0 activas</span>
+          <span id="camp-count-upcoming" class="badge badge-blue">0 próximas</span>
+          <span id="camp-count-draft" class="badge badge-gray">0 borradores</span>
+        </div>
+        <button class="btn-primary" onclick="openCampModal(null)">+ Nueva campaña</button>
+      </div>
+
+      <!-- Campaign cards grid -->
+      <div id="campaigns-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:20px;"></div>
+
+      <!-- Impact table -->
+      <div class="card p-5">
+        <div class="font-semibold text-sm mb-1">Impacto proyectado por campaña activa</div>
+        <div class="text-xs text-zinc-500 mb-4">Calculado automáticamente por el Agente Analista con datos históricos simulados</div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead>
+              <tr style="border-bottom:1px solid #27272a;">
+                <th style="text-align:left;padding:8px 12px;color:#52525b;font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;">Campaña</th>
+                <th style="text-align:left;padding:8px 12px;color:#52525b;font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;">SKUs</th>
+                <th style="text-align:right;padding:8px 12px;color:#52525b;font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;">Crecimiento</th>
+                <th style="text-align:right;padding:8px 12px;color:#52525b;font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;">Demanda est.</th>
+                <th style="text-align:right;padding:8px 12px;color:#52525b;font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;">Stock req.</th>
+                <th style="text-align:center;padding:8px 12px;color:#52525b;font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;">Estado</th>
+                <th style="text-align:center;padding:8px 12px;color:#52525b;font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;">Prioridad</th>
+              </tr>
+            </thead>
+            <tbody id="camp-impact-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== DECISIONS VIEW ==================== -->
+    <div id="view-decisions" class="view">
+      <!-- HITL pending -->
+      <div id="hitl-pending-section" style="display:none;" class="mb-5">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="badge badge-yellow">⚠ Revisión humana pendiente</span>
+          <span class="text-xs text-zinc-500">Las siguientes órdenes requieren tu aprobación</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;" id="hitl-cards"></div>
+      </div>
+
+      <!-- Decision table -->
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-4">
+          <div class="font-semibold text-sm">Tabla de Decisiones por SKU</div>
+          <div class="flex gap-2 text-xs">
+            <span class="badge badge-red">● Crítico</span>
+            <span class="badge badge-yellow">● Medio</span>
+            <span class="badge badge-green">● Bajo</span>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+              <tr style="border-bottom:1px solid #27272a;">
+                <th style="text-align:left;padding:10px 12px;color:#71717a;font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.05em;">SKU</th>
+                <th style="text-align:left;padding:10px 12px;color:#71717a;font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Producto</th>
+                <th style="text-align:right;padding:10px 12px;color:#71717a;font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Stock</th>
+                <th style="text-align:right;padding:10px 12px;color:#71717a;font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.05em;">SS</th>
+                <th style="text-align:right;padding:10px 12px;color:#71717a;font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Forecast 14d</th>
+                <th style="text-align:center;padding:10px 12px;color:#71717a;font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Riesgo</th>
+                <th style="text-align:center;padding:10px 12px;color:#71717a;font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Urgencia</th>
+                <th style="text-align:left;padding:10px 12px;color:#71717a;font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Decisión IA</th>
+                <th style="text-align:center;padding:10px 12px;color:#71717a;font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="decisions-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Decision logic explanation -->
+      <div class="card p-5 mt-4">
+        <div class="font-semibold text-sm mb-3">¿Cómo decide el sistema si necesita aprobación humana?</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:12px;">
+          <div style="background:#0d0d0f;border-radius:8px;padding:12px;border-left:3px solid #4ade80;"><div style="font-weight:600;color:#4ade80;margin-bottom:6px;">🟢 El sistema actúa solo</div><div style="color:#a1a1aa;line-height:1.6;">Orden de bajo valor · pronóstico confiable · sin riesgo de que sea irreversible. No se necesita intervención humana.</div></div>
+          <div style="background:#0d0d0f;border-radius:8px;padding:12px;border-left:3px solid #facc15;"><div style="font-weight:600;color:#facc15;margin-bottom:6px;">🟡 El Director aprueba</div><div style="color:#a1a1aa;line-height:1.6;">Orden de valor medio o pronóstico con menor confianza. El Agente Director revisa y aprueba internamente sin molestar al equipo.</div></div>
+          <div style="background:#0d0d0f;border-radius:8px;padding:12px;border-left:3px solid #f87171;"><div style="font-weight:600;color:#f87171;margin-bottom:6px;">🔴 Necesita aprobación tuya</div><div style="color:#a1a1aa;line-height:1.6;">Orden grande (&gt;$US 5K) · importación · producción en curso · o campaña sin historial. El sistema para y espera tu firma.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== ALERTS VIEW ==================== -->
+    <div id="view-alerts" class="view">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px;">
+        <div class="card-sm p-4 text-center">
+          <div class="text-3xl font-bold text-red-400" id="count-critical">2</div>
+          <div class="text-xs text-zinc-500 mt-1">Críticas</div>
+        </div>
+        <div class="card-sm p-4 text-center">
+          <div class="text-3xl font-bold text-yellow-400" id="count-warning">3</div>
+          <div class="text-xs text-zinc-500 mt-1">Preventivas</div>
+        </div>
+        <div class="card-sm p-4 text-center">
+          <div class="text-3xl font-bold text-blue-400" id="count-info">5</div>
+          <div class="text-xs text-zinc-500 mt-1">Informativas</div>
+        </div>
+      </div>
+      <div id="alerts-list"></div>
+    </div>
+
+    <!-- ==================== AUDIT VIEW ==================== -->
+    <div id="view-audit" class="view">
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <div class="font-semibold text-sm">Log de Auditoría — Registro inmutable</div>
+            <div class="text-xs text-zinc-500">Cada acción del sistema registrada con trace_id, agente y outcome</div>
+          </div>
+          <span class="badge badge-green">● Sincronizado</span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead>
+              <tr style="border-bottom:1px solid #27272a;">
+                <th style="text-align:left;padding:8px 12px;color:#71717a;font-weight:500;white-space:nowrap;">Timestamp</th>
+                <th style="text-align:left;padding:8px 12px;color:#71717a;font-weight:500;">Trace ID</th>
+                <th style="text-align:left;padding:8px 12px;color:#71717a;font-weight:500;">Agente</th>
+                <th style="text-align:left;padding:8px 12px;color:#71717a;font-weight:500;">Acción</th>
+                <th style="text-align:center;padding:8px 12px;color:#71717a;font-weight:500;">CS</th>
+                <th style="text-align:center;padding:8px 12px;color:#71717a;font-weight:500;">RS</th>
+                <th style="text-align:left;padding:8px 12px;color:#71717a;font-weight:500;">Aprobado por</th>
+                <th style="text-align:center;padding:8px 12px;color:#71717a;font-weight:500;">Estado</th>
+              </tr>
+            </thead>
+            <tbody id="audit-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== CONFIG VIEW ==================== -->
+    <div id="view-config" class="view">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+
+        <!-- Empresa -->
+        <div class="card p-5">
+          <div class="font-semibold text-sm mb-1">🏢 Datos de la empresa</div>
+          <div class="text-xs text-zinc-500 mb-4">FlowStock AI adapta sus umbrales y notificaciones a estos parámetros.</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div><label style="font-size:10px;color:#71717a;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em;">Nombre de la empresa</label>
+              <input class="input-dark" id="cfg-company" placeholder="ej. Divino Uruguay"/></div>
+            <div><label style="font-size:10px;color:#71717a;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em;">Industria</label>
+              <select class="input-dark" id="cfg-industry">
+                <option>E-commerce con producción propia</option>
+                <option>E-commerce puro (sin producción)</option>
+                <option>Retail tradicional</option>
+                <option>Distribuidora / Importadora</option>
+                <option>Manufactura + distribución</option>
+              </select></div>
+            <div><label style="font-size:10px;color:#71717a;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em;">Moneda</label>
+              <select class="input-dark" id="cfg-currency">
+                <option>USD ($US)</option><option>UYU ($)</option><option>ARS ($)</option><option>BRL (R$)</option>
+              </select></div>
+            <div><label style="font-size:10px;color:#71717a;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em;">Presupuesto mensual de órdenes ($US)</label>
+              <input class="input-dark" id="cfg-budget" type="number" placeholder="50000"/></div>
+            <div><label style="font-size:10px;color:#71717a;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em;">Umbral para revisión humana — valor de orden ($US)</label>
+              <input class="input-dark" id="cfg-hitl-threshold" type="number" placeholder="5000"/>
+              <div style="font-size:10px;color:#52525b;margin-top:3px;">Órdenes que superen este monto requieren firma humana obligatoria.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ERP -->
+        <div class="card p-5">
+          <div class="font-semibold text-sm mb-1">🔗 Integración ERP</div>
+          <div class="text-xs text-zinc-500 mb-4">Conectá tu sistema de gestión para lectura de stock en tiempo real y escritura de órdenes.</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div><label style="font-size:10px;color:#71717a;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em;">Sistema ERP</label>
+              <select class="input-dark" id="cfg-erp">
+                <option>SAP Business One</option><option>TOTVS</option><option>Odoo</option>
+                <option>Shopify</option><option>VTEX</option><option>WooCommerce</option><option>Custom API REST</option>
+              </select></div>
+            <div><label style="font-size:10px;color:#71717a;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em;">URL base del API endpoint</label>
+              <input class="input-dark" id="cfg-erp-url" placeholder="https://api.tuerp.com/v1"/></div>
+            <div><label style="font-size:10px;color:#71717a;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em;">API Key / Token de autenticación</label>
+              <input class="input-dark" id="cfg-erp-key" type="password" placeholder="sk-..."/></div>
+            <div><label style="font-size:10px;color:#71717a;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em;">Frecuencia de sincronización</label>
+              <select class="input-dark" id="cfg-sync">
+                <option>Cada 15 minutos</option><option>Cada hora</option><option>Cada 4 horas</option><option>Una vez al día</option>
+              </select></div>
+            <button onclick="testERP()" style="background:rgba(34,197,94,.1);color:#4ade80;border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:8px;font-size:12px;font-weight:600;cursor:pointer;width:100%;">🔌 Probar conexión ERP</button>
+          </div>
+        </div>
+
+        <!-- Notificaciones -->
+        <div class="card p-5">
+          <div class="font-semibold text-sm mb-1">📨 Notificaciones</div>
+          <div class="text-xs text-zinc-500 mb-4">Slack y Email para alertas de revisión humana y avisos del sistema.</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div><label style="font-size:10px;color:#71717a;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em;">Slack Webhook URL</label>
+              <input class="input-dark" id="cfg-slack" placeholder="https://hooks.slack.com/services/..."/></div>
+            <div><label style="font-size:10px;color:#71717a;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em;">Canal de Slack</label>
+              <input class="input-dark" id="cfg-slack-channel" placeholder="#alertas-stock"/></div>
+            <div><label style="font-size:10px;color:#71717a;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em;">Email — Responsable de operaciones</label>
+              <input class="input-dark" id="cfg-email-ops" type="email" placeholder="operaciones@empresa.com"/></div>
+            <div><label style="font-size:10px;color:#71717a;display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em;">Email — Responsable de compras</label>
+              <input class="input-dark" id="cfg-email-buy" type="email" placeholder="compras@empresa.com"/></div>
+            <button onclick="testSlack()" style="background:rgba(34,197,94,.1);color:#4ade80;border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:8px;font-size:12px;font-weight:600;cursor:pointer;width:100%;">📢 Probar notificación Slack</button>
+          </div>
+        </div>
+
+        <!-- SKUs -->
+        <div class="card p-5">
+          <div class="font-semibold text-sm mb-1">📦 Productos (SKUs)</div>
+          <div class="text-xs text-zinc-500 mb-4">Editá los productos que monitorea el sistema. Los cambios se aplican en tiempo real.</div>
+          <div id="sku-config-list" style="max-height:280px;overflow-y:auto;margin-bottom:10px;"></div>
+          <button onclick="openSKUModal(null)" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:600;cursor:pointer;width:100%;margin-bottom:14px;">+ Agregar producto</button>
+          <div style="border-top:1px solid #27272a;padding-top:12px;">
+            <button onclick="saveConfig()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;width:100%;">💾 Guardar configuración y actualizar sistema</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- end content area -->
+</div><!-- end main -->
+
+<!-- SKU MODAL -->
+<div class="modal-camp" id="sku-modal">
+  <div style="background:#18181b;border:1px solid #27272a;border-radius:16px;padding:26px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div>
+        <div style="font-weight:700;font-size:16px;" id="sku-modal-title">Nuevo producto</div>
+        <div style="font-size:12px;color:#71717a;margin-top:2px;">Completá los datos del producto a monitorear</div>
+      </div>
+      <button onclick="closeSKUModal()" style="background:#27272a;border:none;border-radius:8px;width:32px;height:32px;cursor:pointer;color:#a1a1aa;font-size:16px;line-height:1;">✕</button>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label style="font-size:10px;color:#71717a;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Código SKU *</label>
+          <input class="input-dark" id="sf-id" placeholder="ej. COL-003"/>
+        </div>
+        <div>
+          <label style="font-size:10px;color:#71717a;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Categoría</label>
+          <select class="input-dark" id="sf-category">
+            <option value="Prod. propia">Producción propia</option>
+            <option value="Importado">Importado</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label style="font-size:10px;color:#71717a;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Nombre del producto *</label>
+        <input class="input-dark" id="sf-name" placeholder="ej. Colchón King Size Deluxe"/>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label style="font-size:10px;color:#71717a;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Stock actual (unidades)</label>
+          <input class="input-dark" id="sf-stock" type="number" placeholder="ej. 120" min="0"/>
+        </div>
+        <div>
+          <label style="font-size:10px;color:#71717a;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Stock de seguridad (unidades)</label>
+          <input class="input-dark" id="sf-ss" type="number" placeholder="ej. 30" min="0"/>
+          <div style="font-size:10px;color:#52525b;margin-top:3px;">Mínimo que el sistema debe mantener siempre.</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label style="font-size:10px;color:#71717a;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Lead time de fabricación (días)</label>
+          <input class="input-dark" id="sf-lt" type="number" placeholder="ej. 12" min="1"/>
+        </div>
+        <div>
+          <label style="font-size:10px;color:#71717a;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Precio unitario ($US)</label>
+          <input class="input-dark" id="sf-value" type="number" placeholder="ej. 850" min="0"/>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label style="font-size:10px;color:#71717a;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Demanda base (unidades/día)</label>
+          <input class="input-dark" id="sf-base" type="number" placeholder="ej. 8" min="0" step="0.5"/>
+          <div style="font-size:10px;color:#52525b;margin-top:3px;">Sin campaña activa. El sistema calcula el resto.</div>
+        </div>
+        <div>
+          <label style="font-size:10px;color:#71717a;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Margen de ganancia (%)</label>
+          <input class="input-dark" id="sf-margin" type="number" placeholder="ej. 55" min="0" max="100"/>
+        </div>
+      </div>
+    </div>
+
+    <input type="hidden" id="sf-editing-idx" value=""/>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px;padding-top:16px;border-top:1px solid #27272a;">
+      <button onclick="closeSKUModal()" style="background:#27272a;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:600;color:#a1a1aa;cursor:pointer;">Cancelar</button>
+      <button onclick="saveSKU()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;padding:9px 24px;font-size:13px;font-weight:600;cursor:pointer;">💾 Guardar producto</button>
+    </div>
+  </div>
+</div>
+
+<!-- CAMPAIGN MODAL -->
+<div class="modal-camp" id="camp-modal">
+  <div style="background:#18181b;border:1px solid #27272a;border-radius:16px;padding:28px;width:560px;max-width:95vw;max-height:90vh;overflow-y:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div>
+        <div style="font-weight:700;font-size:16px;" id="camp-modal-title">Nueva campaña</div>
+        <div style="font-size:12px;color:#71717a;margin-top:2px;">Los campos marcados con * son obligatorios</div>
+      </div>
+      <button onclick="closeCampModal()" style="background:#27272a;border:none;border-radius:8px;width:32px;height:32px;cursor:pointer;color:#a1a1aa;font-size:16px;line-height:1;">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div style="grid-column:1/-1;">
+        <label style="font-size:11px;color:#71717a;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Nombre *</label>
+        <input class="input-dark" id="cf-name" placeholder="ej. Cyber Monday Colchones 2026" style="font-size:14px;padding:10px 12px;"/>
+      </div>
+      <div>
+        <label style="font-size:11px;color:#71717a;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Fecha inicio *</label>
+        <input class="input-dark" id="cf-start" type="date"/>
+      </div>
+      <div>
+        <label style="font-size:11px;color:#71717a;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Fecha fin *</label>
+        <input class="input-dark" id="cf-end" type="date"/>
+      </div>
+      <div>
+        <label style="font-size:11px;color:#71717a;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Categoría</label>
+        <select class="input-dark" id="cf-category">
+          <option value="seasonal">Estacional</option>
+          <option value="flash">Flash / Agresiva</option>
+          <option value="launch">Lanzamiento</option>
+          <option value="clearance">Liquidación</option>
+          <option value="loyalty">Fidelización</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11px;color:#71717a;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Prioridad</label>
+        <select class="input-dark" id="cf-priority">
+          <option value="high">🔴 Alta</option>
+          <option value="medium" selected>🟡 Media</option>
+          <option value="low">🟢 Baja</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11px;color:#71717a;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Crecimiento esperado (% — calculado por IA)</label>
+        <div id="cf-growth-display" style="background:#0d0d0f;border:1px solid #27272a;border-radius:8px;padding:10px 12px;font-size:13px;color:#a1a1aa;min-height:38px;">
+          — Seleccioná categoría y SKUs para ver la proyección
+        </div>
+        <input type="hidden" id="cf-growth" value="0"/>
+      </div>
+      <div>
+        <label style="font-size:11px;color:#71717a;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Duración (calculada)</label>
+        <input class="input-dark" id="cf-duration" readonly style="color:#71717a;cursor:default;" placeholder="—"/>
+      </div>
+      <div style="grid-column:1/-1;">
+        <label style="font-size:11px;color:#71717a;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">SKUs incluidos *</label>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;" id="cf-skus-checkboxes"></div>
+      </div>
+    </div>
+    <input type="hidden" id="cf-editing-id" value=""/>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;padding-top:16px;border-top:1px solid #27272a;">
+      <button onclick="closeCampModal()" style="background:#27272a;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:600;color:#a1a1aa;cursor:pointer;">Cancelar</button>
+      <button class="btn-primary" onclick="saveCampaign()" style="padding:9px 24px;">💾 Guardar campaña</button>
+    </div>
+  </div>
+</div>
+
+<!-- HITL MODAL -->
+<div class="modal-overlay" id="hitl-modal">
+  <div class="card" style="max-width:500px;width:100%;max-height:90vh;display:flex;flex-direction:column;">
+    <!-- Header — fixed -->
+    <div style="padding:20px 22px 16px;border-bottom:1px solid #27272a;display:flex;align-items:center;gap:12px;flex-shrink:0;">
+      <div style="width:40px;height:40px;background:rgba(234,179,8,.12);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">👤</div>
+      <div style="flex:1;">
+        <div class="font-semibold" id="modal-header-title">Revisión Humana Requerida</div>
+        <div class="text-xs text-zinc-500" id="modal-header-sub">Firma requerida antes de que el sistema actúe</div>
+      </div>
+      <span class="badge badge-yellow">HITL</span>
+      <button onclick="closeHITLModal()" style="background:#27272a;border:none;border-radius:8px;width:30px;height:30px;cursor:pointer;color:#a1a1aa;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:4px;">✕</button>
+    </div>
+    <!-- Scrollable content -->
+    <div style="overflow-y:auto;padding:18px 22px;flex:1;">
+      <!-- Main review screen -->
+      <div id="modal-content"></div>
+      <!-- Reject alternatives screen (hidden initially) -->
+      <div id="modal-reject-screen" style="display:none;">
+        <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:10px;padding:14px;margin-bottom:14px;">
+          <div style="font-size:13px;font-weight:600;color:#f87171;margin-bottom:4px;">⚠ Si no aprobás la orden original, ¿qué hacemos?</div>
+          <div style="font-size:12px;color:#a1a1aa;" id="reject-consequence-text"></div>
+        </div>
+        <div style="font-size:11px;color:#71717a;margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em;">Elegí una alternativa</div>
+        <div style="display:flex;flex-direction:column;gap:8px;" id="reject-options"></div>
+      </div>
+      <div style="background:#0d0d0f;border-radius:8px;padding:10px 12px;margin-top:12px;font-size:11px;color:#71717a;">
+        Circuit breakers activos: <span id="modal-cb" style="color:#fafafa;">0</span>
+        &nbsp;·&nbsp; SLA: <span style="color:#facc15;">30 min</span> · Si no responde, el sistema <strong style="color:#f87171;">no actúa</strong>
+      </div>
+    </div>
+    <!-- Footer — fixed, swaps between screens -->
+    <div style="padding:14px 22px;border-top:1px solid #27272a;flex-shrink:0;" id="modal-footer">
+      <div style="display:flex;gap:10px;">
+        <button class="btn-green flex-1" onclick="modalApprove()" style="padding:11px;font-size:13px;">✓ Aprobar orden completa</button>
+        <button class="btn-red flex-1" onclick="showRejectScreen()" style="padding:11px;font-size:13px;">✗ No aprobar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ==================== DATA ====================
+const SKU_DATA = [
+  { id:'COL-001', name:'Colchón Premium King', stock:45, ss:30, forecast14:120, leadTime:12, margin:68, risk:'critical', category:'Prod. propia', value:6800,
+    cs:0.61, csReason:'Campaña activa con presupuesto mayor al histórico — multiplicador de demanda sin precedente exacto' },
+  { id:'COL-002', name:'Colchón Doble Pillow', stock:87, ss:40, forecast14:95, leadTime:12, margin:55, risk:'medium', category:'Prod. propia', value:4200,
+    cs:0.78, csReason:'Producto con 18 meses de historial · comportamiento estable en campañas anteriores' },
+  { id:'TEX-007', name:'Set Sábanas 400H', stock:12, ss:25, forecast14:80, leadTime:5, margin:72, risk:'critical', category:'Prod. propia', value:2100,
+    cs:0.55, csReason:'Stock crítico actual reduce la confianza · demanda histórica con alta variabilidad estacional' },
+  { id:'TEX-012', name:'Almohada Memory Foam', stock:156, ss:50, forecast14:60, leadTime:5, margin:48, risk:'low', category:'Prod. propia', value:980,
+    cs:0.88, csReason:'Stock holgado · 24 meses de historial estable · sin campaña agresiva activa' },
+  { id:'IMP-023', name:'Smart TV 55" 4K', stock:8, ss:15, forecast14:45, leadTime:45, margin:32, risk:'critical', category:'Importado', value:12400,
+    cs:0.81, csReason:'Demanda de electrónica predecible pero lead time de importación agrega riesgo operativo' },
+  { id:'IMP-031', name:'Heladera NoFrost 400L', stock:23, ss:20, forecast14:38, leadTime:45, margin:28, risk:'medium', category:'Importado', value:8900,
+    cs:0.73, csReason:'Categoría importado con tipo de cambio variable · pronóstico con menor historial local' },
+  { id:'TEX-019', name:'Frazada Polar XL', stock:210, ss:80, forecast14:90, leadTime:7, margin:61, risk:'low', category:'Prod. propia', value:760,
+    cs:0.91, csReason:'Producto estacional con patrón claro · 3 inviernos de datos · stock muy por encima del SS' },
+];
+
+const AGENTS_DATA = [
+  { id:'director', name:'Agente Director', icon:'🎯', status:'active', lastAction:'Aprobó orden OP-2206 ($US 3.800) — COL-002', confidence:89, cs:0.89, model:'Claude Sonnet 4.6', tools:['LangGraph','Redis','PagerDuty'], canDo:['Aprobar órdenes ≤ $US 5K','Priorizar SKUs','Escalar alertas'], cannotDo:['Ejecutar órdenes > $US 5K','Modificar política de negocio'], time:'hace 4 min' },
+  { id:'forecasting', name:'Agente Predictivo', icon:'🧠', status:'active', lastAction:'Actualizó pronóstico COL-001: +34% (campaña detectada)', confidence:76, cs:0.76, model:'Prophet + XGBoost + Haiku', tools:['Prophet','XGBoost','Feast','Airflow'], canDo:['Generar pronósticos P10/P50/P90','Re-entrenar modelos semanalmente'], cannotDo:['Emitir órdenes','Publicar CS < 0.50 sin flag'], time:'hace 8 min' },
+  { id:'planner', name:'Agente Planificador', icon:'📐', status:'processing', lastAction:'Calculando plan de reposición TEX-007 (stock crítico)...', confidence:82, cs:0.82, model:'PuLP/OR-Tools + reglas', tools:['PuLP','ERP API','Feature Store'], canDo:['Calcular planes de reposición','Actualizar SS dinámico'], cannotDo:['Confirmar órdenes directamente','Superar 120% cap. mensual'], time:'hace 1 min' },
+  { id:'monitor', name:'Agente Monitor', icon:'👁️', status:'active', lastAction:'CRITICAL: TEX-007 stock = 12u vs SS = 25u (déficit 52%)', confidence:95, cs:0.95, model:'Reglas + thresholds estadísticos', tools:['ERP API','SQS','Datadog'], canDo:['Clasificar alertas INFO/WARN/CRIT','Reportar KPIs cada 15 min'], cannotDo:['Emitir órdenes operativas','Modificar stock directamente'], time:'hace 2 min' },
+  { id:'production', name:'Agente Operativo', icon:'🏭', status:'waiting', lastAction:'Esperando aprobación HITL para orden OP-2289 ($US 7.200)', confidence:91, cs:0.91, model:'Reglas + LLM pequeño', tools:['ERP SAP/TOTVS','Slack API','Email API'], canDo:['Emitir órdenes ≤ $US 5K (con Director)','Registrar desvíos de lead time'], cannotDo:['Órdenes > $US 5K autónomas','Cancelar producción física en curso'], time:'hace 12 min' },
+  { id:'replenishment', name:'Agente Reposición', icon:'🚢', status:'idle', lastAction:'Monitoreando vencimiento OC-IMP-023 (proveedor ABC · T-14 días)', confidence:88, cs:0.88, model:'Reglas + APIs proveedores', tools:['Proveedor APIs','BCUAPI','ERP'], canDo:['Generar drafts órdenes importación','Recomendar proveedor alternativo'], cannotDo:['Confirmar NINGUNA orden importación','Actuar sin aprobación humana'], time:'hace 25 min' },
+  { id:'audit', name:'Agente Auditoría', icon:'📁', status:'active', lastAction:'Registró 47 eventos hoy · 0 anomalías detectadas · logs sincronizados', confidence:99, cs:0.99, model:'Reglas + SQL', tools:['PostgreSQL','S3','Datadog'], canDo:['Registrar toda acción del sistema','Detectar inconsistencias'], cannotDo:['Actuar sobre el sistema operativo','NUNCA modifica datos'], time:'continuo' },
+];
+
+const ALERTS_DATA = [
+  { id:'A001', level:'critical', title:'Stock crítico — TEX-007', desc:'Stock actual 12u < Stock Seguridad 25u. Déficit del 52%. Quiebre proyectado en 2 días si tendencia continúa.', sku:'TEX-007', time:'hace 3 min', agent:'Monitor', dismissed:false },
+  { id:'A002', level:'critical', title:'Proveedor sin confirmar — IMP-023', desc:'Proveedor ABC no confirmó despacho. Plazo vencimiento: T-14 días. Riesgo quiebre stock en 14 días.', sku:'IMP-023', time:'hace 18 min', agent:'Replenishment', dismissed:false },
+  { id:'A003', level:'warning', title:'Stock bajo — COL-001', desc:'Stock actual 45u entre SS×1 y SS×2. Demanda proyectada 14d: 120u. Plan de reposición preventiva recomendado.', sku:'COL-001', time:'hace 35 min', agent:'Monitor', dismissed:false },
+  { id:'A004', level:'warning', title:'MAPE sobre umbral semana 3', desc:'MAPE actual: 22.1% en categoría Importados. Supera objetivo 20% por tercera semana. Revisar modelo.', sku:'IMP-031', time:'hace 2h', agent:'Director', dismissed:false },
+  { id:'A005', level:'warning', title:'Lead time colchones +1 día', desc:'Fábrica reportó demora de 1 día en línea de colchones. Lead time efectivo: 13 días (vs 12 estándar).', sku:'COL-001', time:'hace 3h', agent:'Producción', dismissed:false },
+  { id:'A006', level:'info', title:'Re-entrenamiento completado', desc:'Modelo Prophet/XGBoost re-entrenado exitosamente. MAPE mejoró de 19.8% a 18.4%. Nuevo modelo en producción.', sku:'*', time:'hace 4h', agent:'Forecasting', dismissed:false },
+  { id:'A007', level:'info', title:'Campaña Cyberlunes cargada', desc:'Marketing cargó campaña Cyberlunes (15-jun). Forecasting procesó multiplicadores históricos. Plan actualizado.', sku:'*', time:'hace 6h', agent:'Director', dismissed:false },
+  { id:'A008', level:'info', title:'Fill Rate 96.8% — Objetivo cumplido', desc:'Fill Rate semanal: 96.8%. Supera objetivo del 97% por primera vez. Acumulado mensual: 96.1%.', sku:'*', time:'hace 8h', agent:'Monitor', dismissed:false },
+];
+
+const AUDIT_DATA = [
+  { ts:'2026-06-10 14:32:11', trace:'f8a2-3c91', agent:'Stock Planner', action:'GENERATE_REPLENISHMENT_PLAN · COL-002 · 87u→plan 180u', cs:0.82, rs:0.28, approvedBy:'Director Agent', status:'executed' },
+  { ts:'2026-06-10 14:28:44', trace:'e7b1-2d80', agent:'Forecasting', action:'UPDATE_FORECAST · COL-001 · +34% por campaña detectada', cs:0.76, rs:0.00, approvedBy:'Autónomo', status:'executed' },
+  { ts:'2026-06-10 14:15:02', trace:'d6c0-1e79', agent:'Monitor', action:'CRITICAL_ALERT · TEX-007 · stock 12u < SS 25u', cs:0.95, rs:0.00, approvedBy:'Autónomo', status:'escalated' },
+  { ts:'2026-06-10 13:55:18', trace:'c5d9-0f68', agent:'Production Mgr', action:'EMIT_PRODUCTION_ORDER · COL-002 · OP-2206 · $US 3.800', cs:0.91, rs:0.38, approvedBy:'Director Agent', status:'executed' },
+  { ts:'2026-06-10 13:40:00', trace:'b4e8-9g57', agent:'Director', action:'RESOLVE_CONFLICT · Planner vs Forecasting · COL-001 · plan pausado', cs:0.89, rs:0.45, approvedBy:'Director Agent', status:'executed' },
+  { ts:'2026-06-10 12:30:00', trace:'a3f7-8h46', agent:'Replenishment', action:'DRAFT_IMPORT_ORDER · IMP-023 · $US 12.400 · pendiente firma', cs:0.88, rs:0.82, approvedBy:'PENDING HUMAN', status:'pending' },
+  { ts:'2026-06-10 11:00:00', trace:'92a6-7i35', agent:'Audit', action:'ANOMALY_CHECK · 0 anomalías · 47 eventos registrados hoy', cs:0.99, rs:0.00, approvedBy:'Autónomo', status:'executed' },
+  { ts:'2026-06-10 08:00:00', trace:'81b5-6j24', agent:'Forecasting', action:'RETRAIN_MODEL · Prophet+XGBoost · MAPE 19.8%→18.4%', cs:0.99, rs:0.00, approvedBy:'Autónomo', status:'executed' },
+];
+
+// App state
+let appState = {
+  currentView: 'dashboard',
+  forecastChart: null,
+  stockChart: null,
+  activeScenario: null,
+  circuitBreakers: 0,
+  fillRate: 96.8,
+  mape: 18.4,
+  criticalSKUs: 3,
+  ordersToday: 12,
+  savings: 284,
+  stock_col001: 45,
+  demand_col001: 120,
+  riskScore: 0.28,
+  cs: 0.82,
+  hitlActive: false,
+  alerts: [...ALERTS_DATA],
+  auditLog: [...AUDIT_DATA],
+};
+
+// ==================== NAVIGATION ====================
+function navigate(view) {
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+  document.getElementById('nav-' + view).classList.add('active');
+  document.getElementById('view-' + view).classList.add('active');
+  appState.currentView = view;
+
+  const titles = {
+    dashboard: ['Dashboard General', 'Visión en tiempo real del sistema multiagente'],
+    agents: ['Panel de Agentes', '7 agentes especializados — estados, confianza y límites de autoridad'],
+    simulator: ['Simulador de Escenarios', 'Ejecutá escenarios reales y observá cómo responde el sistema'],
+    campaigns: ['Gestión de Campañas', 'Creá, editá y simulá campañas comerciales con impacto automático en el stock'],
+    decisions: ['Tabla de Decisiones', 'SKUs activos, risk scores y aprobaciones pendientes'],
+    alerts: ['Sistema de Alertas', 'Alertas clasificadas por nivel: CRITICAL, WARNING, INFO'],
+    audit: ['Log de Auditoría', 'Registro inmutable de toda acción del sistema — trazabilidad completa'],
+    config: ['Configuración — Integrar empresa', 'Conectá tu ERP, Slack y Email para activar el sistema en producción'],
+  };
+  document.getElementById('view-title').textContent = titles[view][0];
+  document.getElementById('view-subtitle').textContent = titles[view][1];
+
+  if (view === 'agents') renderAgents();
+  if (view === 'decisions') renderDecisions();
+  if (view === 'alerts') renderAlerts();
+  if (view === 'campaigns') renderCampaigns();
+  if (view === 'config') renderConfig();
+  if (view === 'simulator') { populateSimCampaigns(); simAutoGrowth(); }
+  if (view === 'campaigns') renderCampaigns();
+  if (view === 'simulator') { populateSimCampaigns(); simAutoGrowth(); }
+}
+
+// ==================== RENDER AGENTS ====================
+function renderAgentsMini() {
+  const container = document.getElementById('agents-mini');
+  container.innerHTML = AGENTS_DATA.slice(0,5).map(a => `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:#0d0d0f;border-radius:8px;">
+      <span style="font-size:16px;">${a.icon}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:500;">${a.name}</div>
+        <div style="font-size:11px;color:#71717a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a.lastAction}</div>
+      </div>
+      <div class="dot dot-${a.status==='active'?'green':a.status==='processing'?'yellow':a.status==='waiting'?'blue':'gray'}"></div>
+      <div style="font-size:12px;color:${a.confidence>85?'#4ade80':a.confidence>70?'#facc15':'#f87171'};font-weight:600;min-width:30px;text-align:right;">${a.confidence}%</div>
+    </div>
+  `).join('');
+}
+
+function renderAgents() {
+  const grid = document.getElementById('agents-grid');
+  grid.innerHTML = AGENTS_DATA.map(a => {
+    const statusColors = { active:'green', processing:'yellow', waiting:'blue', idle:'gray' };
+    const statusLabels = { active:'Activo', processing:'Procesando', waiting:'En espera', idle:'Inactivo' };
+    return `
+    <div class="agent-card">
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;">
+        <div style="width:42px;height:42px;background:#27272a;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">${a.icon}</div>
+        <div style="flex:1;">
+          <div style="font-weight:600;font-size:14px;">${a.name}</div>
+          <div style="font-size:11px;color:#71717a;">${a.model}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div class="dot dot-${statusColors[a.status]}"></div>
+          <span style="font-size:11px;color:#a1a1aa;">${statusLabels[a.status]}</span>
+        </div>
+      </div>
+
+      <div style="font-size:11px;color:#71717a;margin-bottom:8px;">Última acción (${a.time})</div>
+      <div style="font-size:12px;color:#a1a1aa;background:#0d0d0f;border-radius:6px;padding:8px;margin-bottom:12px;line-height:1.5;">${a.lastAction}</div>
+
+      <div style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+          <span style="font-size:11px;color:#71717a;">Confidence Score</span>
+          <span style="font-size:12px;font-weight:600;color:${a.confidence>85?'#4ade80':a.confidence>70?'#facc15':'#f87171'};">${a.confidence}%</span>
+        </div>
+        <div class="progress-track"><div class="progress-fill" style="width:${a.confidence}%;background:${a.confidence>85?'#4ade80':a.confidence>70?'#facc15':'#ef4444'};"></div></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+        <div>
+          <div style="font-size:10px;color:#4ade80;font-weight:600;margin-bottom:4px;">✓ PUEDE HACER</div>
+          ${a.canDo.map(d=>`<div style="font-size:10px;color:#71717a;margin-bottom:2px;">• ${d}</div>`).join('')}
+        </div>
+        <div>
+          <div style="font-size:10px;color:#f87171;font-weight:600;margin-bottom:4px;">✗ NO PUEDE</div>
+          ${a.cannotDo.map(d=>`<div style="font-size:10px;color:#71717a;margin-bottom:2px;">• ${d}</div>`).join('')}
+        </div>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:4px;">
+        ${a.tools.map(t=>`<span style="background:#27272a;color:#a1a1aa;font-size:10px;padding:2px 7px;border-radius:4px;">${t}</span>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ==================== RENDER DECISIONS ====================
+function renderDecisions() {
+  const tbody = document.getElementById('decisions-table-body');
+  tbody.innerHTML = SKU_DATA.map(sku => {
+    const deficit = sku.forecast14 + sku.ss - sku.stock;
+    const orderQty = Math.max(0, deficit);
+    const orderValue = orderQty * (sku.value / sku.forecast14 * 2);
+    const rs = calcRS(sku);
+    const cs = 0.65 + Math.random() * 0.3;
+    const riskBadge = { critical:'badge-red', medium:'badge-yellow', low:'badge-green' };
+    const opStateMap = {
+      critical: { label:'Critical',             cls:'op-critical',       icon:'🔴' },
+      medium:   { label:'Risk',                 cls:'op-risk',           icon:'⚠️' },
+      low:      { label:'Stable',               cls:'op-stable',         icon:'✅' },
+    };
+    const opS = opStateMap[sku.risk] || opStateMap.low;
+    // Override with more precise logic
+    const coverRatio = sku.stock / (sku.forecast14 + sku.ss);
+    let finalOp = opS;
+    if (sku.stock <= sku.ss)                    finalOp = { label:'Critical',             cls:'op-critical',       icon:'🔴' };
+    else if (sku.category === 'Importado')       finalOp = { label:'Replenishment Needed', cls:'op-replenishment',  icon:'🔄' };
+    else if (coverRatio < 0.6)                   finalOp = { label:'Replenishment Needed', cls:'op-replenishment',  icon:'🔄' };
+    else if (coverRatio < 0.9)                   finalOp = { label:'Risk',                 cls:'op-risk',           icon:'⚠️' };
+    else if (sku.leadTime > 30)                  finalOp = { label:'Capacity Limit',       cls:'op-capacity',       icon:'🏭' };
+    else if (coverRatio >= 1.1 && sku.stock > sku.ss * 2) finalOp = { label:'Stable', cls:'op-stable', icon:'✅' };
+    const decision = rs > 0.6 ? '👤 Aprobación humana' : rs > 0.3 ? '🔄 El Director aprueba' : '🤖 El sistema actúa solo';
+    const hitlNeeded = rs > 0.6 || sku.risk === 'critical';
+    return `
+    <tr class="table-row" style="border-bottom:1px solid #1f1f23;">
+      <td style="padding:10px 12px;font-family:'Courier New',monospace;font-size:12px;color:#818cf8;">${sku.id}</td>
+      <td style="padding:10px 12px;font-size:13px;">${sku.name}<br><span style="font-size:11px;color:#71717a;">${sku.category} · Lead time: ${sku.leadTime}d</span></td>
+      <td style="padding:10px 12px;text-align:right;font-weight:600;color:${sku.stock<=sku.ss?'#f87171':sku.stock<=sku.ss*1.5?'#facc15':'#fafafa'};">${sku.stock}u</td>
+      <td style="padding:10px 12px;text-align:right;color:#71717a;">${sku.ss}u</td>
+      <td style="padding:10px 12px;text-align:right;color:#818cf8;">${sku.forecast14}u</td>
+      <td style="padding:10px 12px;text-align:center;"><span class="op-state ${finalOp.cls}">${finalOp.icon} ${finalOp.label}</span></td>
+      <td style="padding:10px 12px;text-align:center;">
+        <span style="font-weight:700;color:${rs>0.6?'#f87171':rs>0.3?'#facc15':'#4ade80'};">${rs>0.6?'🔴 Alta':rs>0.3?'🟡 Media':'🟢 Baja'}</span>
+      </td>
+      <td style="padding:10px 12px;font-size:12px;color:${rs>0.6?'#f87171':rs>0.3?'#facc15':'#4ade80'};">${decision}</td>
+      <td style="padding:10px 12px;text-align:center;">
+        ${hitlNeeded
+          ? `<span class="badge badge-yellow" data-hitl-sku="${sku.id}" style="cursor:pointer;" onclick="showModal('${sku.id}','${sku.name}',${Math.round(orderValue)})">👤 Revisar</span>`
+          : orderQty > 0
+            ? `<span class="badge badge-blue">Orden ${orderQty}u</span>`
+            : `<span class="badge badge-gray">Stock OK</span>`
+        }
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function calcRS(sku) {
+  const budget = 50000;
+  const deficit = Math.max(0, sku.forecast14 + sku.ss - sku.stock);
+  const orderValue = deficit * (sku.value / sku.forecast14 * 2);
+  const irrev = sku.category === 'Importado' ? 1.0 : 0.4;
+  const cs = sku.risk === 'critical' ? 0.55 : sku.risk === 'medium' ? 0.75 : 0.88;
+  return Math.min(1, (orderValue/budget)*0.4 + (1-cs)*0.3 + irrev*0.3);
+}
+
+// ==================== RENDER ALERTS ====================
+function renderAlerts() {
+  const list = document.getElementById('alerts-list');
+  const active = appState.alerts.filter(a => !a.dismissed);
+  const critical = active.filter(a=>a.level==='critical');
+  const warning = active.filter(a=>a.level==='warning');
+  const info = active.filter(a=>a.level==='info');
+  document.getElementById('count-critical').textContent = critical.length;
+  document.getElementById('count-warning').textContent = warning.length;
+  document.getElementById('count-info').textContent = info.length;
+  document.getElementById('alerts-badge').textContent = critical.length + warning.length;
+
+  list.innerHTML = active.map(alert => {
+    const icons = { critical:'🔴', warning:'⚠️', info:'ℹ️' };
+    const classes = { critical:'alert-critical', warning:'alert-warning', info:'alert-info' };
+    return `
+    <div class="alert-item ${classes[alert.level]}">
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <span style="font-size:16px;flex-shrink:0;">${icons[alert.level]}</span>
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <span style="font-size:13px;font-weight:600;">${alert.title}</span>
+            <span style="font-size:11px;color:#71717a;">${alert.time}</span>
+            <span class="badge ${alert.level==='critical'?'badge-red':alert.level==='warning'?'badge-yellow':'badge-blue'} ml-auto">${alert.level.toUpperCase()}</span>
+          </div>
+          <div style="font-size:12px;color:#a1a1aa;margin-bottom:6px;">${alert.desc}</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span style="font-family:'Courier New',monospace;font-size:11px;color:#71717a;">${alert.sku !== '*' ? alert.sku : 'Sistema'}</span>
+            <span style="font-size:11px;color:#71717a;">· Agente: ${alert.agent}</span>
+            <button onclick="dismissAlert('${alert.id}')" style="margin-left:auto;font-size:11px;color:#71717a;background:none;border:none;cursor:pointer;padding:0;">✕ Descartar</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('') || '<div style="text-align:center;color:#71717a;padding:32px;">No hay alertas activas</div>';
+}
+
+function dismissAlert(id) {
+  const a = appState.alerts.find(x => x.id === id);
+  if (a) { a.dismissed = true; renderAlerts(); showToast('Alerta descartada', 'info'); }
+}
+
+// ==================== RENDER AUDIT ====================
+function renderAudit() {
+  const tbody = document.getElementById('audit-table-body');
+  const statusBadge = { executed:'badge-green', pending:'badge-yellow', escalated:'badge-orange', rejected:'badge-red' };
+  const statusLabel = { executed:'Ejecutado', pending:'Pendiente', escalated:'Escalado', rejected:'Rechazado' };
+  tbody.innerHTML = appState.auditLog.map(e => `
+    <tr class="table-row" style="border-bottom:1px solid #1f1f23;">
+      <td style="padding:8px 12px;font-family:'Courier New',monospace;font-size:11px;color:#71717a;white-space:nowrap;">${e.ts}</td>
+      <td style="padding:8px 12px;font-family:'Courier New',monospace;font-size:11px;color:#6366f1;">${e.trace}</td>
+      <td style="padding:8px 12px;font-size:12px;color:#a1a1aa;">${e.agent}</td>
+      <td style="padding:8px 12px;font-size:11px;color:#fafafa;">${e.action}</td>
+      <td style="padding:8px 12px;text-align:center;font-size:12px;font-weight:600;color:${e.cs>0.8?'#4ade80':e.cs>0.6?'#facc15':'#f87171'};">${e.cs.toFixed(2)}</td>
+      <td style="padding:8px 12px;text-align:center;font-size:12px;font-weight:600;color:${e.rs>0.6?'#f87171':e.rs>0.3?'#facc15':'#4ade80'};">${e.rs.toFixed(2)}</td>
+      <td style="padding:8px 12px;font-size:12px;color:#a1a1aa;">${e.approvedBy}</td>
+      <td style="padding:8px 12px;text-align:center;"><span class="badge ${statusBadge[e.status]}">${statusLabel[e.status]}</span></td>
+    </tr>
+  `).join('');
+}
+
+// ==================== RENDER ALERTS MINI ====================
+function renderAlertsMini() {
+  const container = document.getElementById('alerts-mini');
+  const active = appState.alerts.filter(a => !a.dismissed).slice(0,4);
+  const icons = { critical:'🔴', warning:'⚠️', info:'ℹ️' };
+  container.innerHTML = active.map(a => `
+    <div style="display:flex;gap:8px;padding:8px;background:#0d0d0f;border-radius:8px;margin-bottom:6px;">
+      <span style="font-size:13px;flex-shrink:0;">${icons[a.level]}</span>
+      <div>
+        <div style="font-size:12px;font-weight:500;">${a.title}</div>
+        <div style="font-size:11px;color:#71717a;">${a.time} · ${a.agent}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ==================== MODAL ====================
+let currentModalSkuId = null;
+
+function showModal(skuId, skuName, value) {
+  currentModalSkuId = skuId;
+  const modal  = document.getElementById('hitl-modal');
+  const sku    = SKU_DATA.find(s => s.id === skuId);
+  if (!sku) return;
+
+  const cs        = sku.cs || 0.75;
+  const csReason  = sku.csReason || 'Sin datos adicionales';
+  const csPct     = Math.round(cs * 100);
+  const csColor   = cs >= 0.80 ? '#4ade80' : cs >= 0.65 ? '#facc15' : '#f87171';
+  const csLabel   = cs >= 0.80 ? 'Alta' : cs >= 0.65 ? 'Media' : 'Baja';
+
+  // What the system wants to do
+  const deficit   = Math.max(0, sku.forecast14 + sku.ss - sku.stock);
+  const orderQty  = deficit;
+  const isImport  = sku.category === 'Importado';
+  const actionDesc = isImport
+    ? `Emitir orden de importación a proveedor externo — ${orderQty}u de ${skuName}`
+    : `Emitir orden de producción a fábrica — ${orderQty}u de ${skuName}`;
+  const consequence = isImport
+    ? `Si aprobás: se envía el draft de compra al proveedor para gestionar el despacho. Si rechazás: no se compra nada y el stock sigue como está (riesgo de quiebre en ${Math.round(sku.stock / (sku.forecast14/14))} días).`
+    : `Si aprobás: fábrica empieza a producir ${orderQty}u con lead time de ${sku.leadTime} días. Si rechazás: el stock actual cubre solo ${Math.round((sku.stock/sku.forecast14)*14)} días de demanda.`;
+
+  // Why human needed
+  const whyHuman = isImport
+    ? `Las importaciones siempre requieren firma humana — implican pagos a proveedores externos y compromisos de tipo de cambio.`
+    : `El valor estimado ($US ${value.toLocaleString()}) supera el límite automático de $US 5.000 por orden.`;
+
+  // Risk level
+  const riskColor = cs < 0.65 ? '#f87171' : sku.risk === 'critical' ? '#facc15' : '#4ade80';
+  const riskLabel = cs < 0.65
+    ? '⚠️ Riesgo medio-alto — pronóstico con poca confianza, la demanda real podría diferir bastante'
+    : sku.risk === 'critical'
+    ? '⚠️ Riesgo medio — stock crítico pero pronóstico confiable'
+    : '✅ Riesgo bajo — el pronóstico es confiable y los números son consistentes';
+
+  // Recommendation
+  const rec = cs >= 0.65
+    ? `<span style="color:#4ade80;font-weight:600;">✓ Aprobar</span> — el pronóstico es confiable y la acción es necesaria para evitar quiebre de stock.`
+    : `<span style="color:#facc15;font-weight:600;">⚠ Revisar antes de aprobar</span> — la confianza del pronóstico es baja (${csPct}%). Considerá reducir la cantidad del pedido como medida conservadora.`;
+
+  document.getElementById('modal-content').innerHTML = `
+    <!-- Qué quiere hacer el sistema -->
+    <div style="background:#0d0d0f;border:1px solid #27272a;border-radius:10px;padding:14px;margin-bottom:10px;">
+      <div style="font-size:10px;color:#71717a;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Qué quiere hacer el sistema</div>
+      <div style="font-size:13px;font-weight:600;color:#fafafa;margin-bottom:4px;">📦 ${actionDesc}</div>
+      <div style="font-size:12px;color:#a1a1aa;line-height:1.6;">${consequence}</div>
+    </div>
+
+    <!-- Números clave -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
+      <div style="background:#0d0d0f;border-radius:8px;padding:11px;text-align:center;">
+        <div style="font-size:10px;color:#71717a;margin-bottom:3px;">Valor de la orden</div>
+        <div style="font-size:17px;font-weight:700;color:#facc15;">$US ${value.toLocaleString()}</div>
+      </div>
+      <div style="background:#0d0d0f;border-radius:8px;padding:11px;text-align:center;">
+        <div style="font-size:10px;color:#71717a;margin-bottom:3px;">Unidades a ordenar</div>
+        <div style="font-size:17px;font-weight:700;color:#818cf8;">${orderQty}u</div>
+      </div>
+      <div style="background:#0d0d0f;border-radius:8px;padding:11px;text-align:center;">
+        <div style="font-size:10px;color:#71717a;margin-bottom:3px;">Stock actual</div>
+        <div style="font-size:17px;font-weight:700;color:${sku.stock<=sku.ss?'#f87171':'#a1a1aa'};">${sku.stock}u <span style="font-size:11px;font-weight:400;">(SS: ${sku.ss}u)</span></div>
+      </div>
+    </div>
+
+    <!-- Confianza del pronóstico -->
+    <div style="background:#0d0d0f;border:1px solid #27272a;border-radius:10px;padding:13px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div style="font-size:10px;color:#71717a;text-transform:uppercase;letter-spacing:.05em;">Confianza del pronóstico de demanda</div>
+        <div style="font-size:16px;font-weight:700;color:${csColor};">${csPct}% — ${csLabel}</div>
+      </div>
+      <div style="background:#27272a;border-radius:99px;height:6px;margin-bottom:8px;overflow:hidden;">
+        <div style="height:100%;width:${csPct}%;background:${csColor};border-radius:99px;"></div>
+      </div>
+      <div style="font-size:11px;color:#a1a1aa;">📊 ${csReason}</div>
+    </div>
+
+    <!-- Nivel de riesgo y por qué necesita firma -->
+    <div style="background:#0d0d0f;border-radius:10px;padding:13px;margin-bottom:10px;font-size:12px;color:#a1a1aa;line-height:1.6;">
+      <div style="margin-bottom:4px;color:${riskColor};font-weight:600;">${riskLabel}</div>
+      <div>🔐 <strong style="color:#fafafa;">Por qué requiere tu firma:</strong> ${whyHuman}</div>
+    </div>
+
+    <!-- Recomendación final -->
+    <div style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);border-radius:10px;padding:13px;font-size:13px;line-height:1.6;">
+      <div style="font-size:10px;color:#71717a;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Recomendación del sistema</div>
+      ${rec}
+    </div>`;
+
+  document.getElementById('modal-cb').textContent = appState.circuitBreakers;
+  modal.classList.add('show');
+  appState.hitlActive = true;
+}
+
+function closeHITLModal() {
+  document.getElementById('hitl-modal').classList.remove('show');
+  // Reset to main screen for next open
+  document.getElementById('modal-content').style.display = 'block';
+  document.getElementById('modal-reject-screen').style.display = 'none';
+  document.getElementById('modal-header-title').textContent = 'Revisión Humana Requerida';
+  document.getElementById('modal-header-sub').textContent = 'Firma requerida antes de que el sistema actúe';
+  document.getElementById('modal-footer').innerHTML = `<div style="display:flex;gap:10px;">
+    <button class="btn-green flex-1" onclick="modalApprove()" style="padding:11px;font-size:13px;">✓ Aprobar orden completa</button>
+    <button class="btn-red flex-1" onclick="showRejectScreen()" style="padding:11px;font-size:13px;">✗ No aprobar</button>
+  </div>`;
+}
+
+function modalApprove() {
+  const sku = SKU_DATA.find(s => s.id === currentModalSkuId);
+  const deficit = sku ? Math.max(0, sku.forecast14 + sku.ss - sku.stock) : 0;
+  addAuditEntry('Director + Humano', `APPROVE_HITL · ${currentModalSkuId} · ${deficit}u · firma humana`, sku ? sku.cs : 0.81, 0.72, 'Human Operator', 'executed');
+  setBadge(currentModalSkuId, '✓ Aprobado', 'badge-green');
+  closeHITLModal();
+  showToast('✓ Orden aprobada — fábrica notificada, registrado en auditoría', 'success');
+  appState.hitlActive = false;
+}
+
+function showRejectScreen() {
+  const sku = SKU_DATA.find(s => s.id === currentModalSkuId);
+  if (!sku) return;
+
+  const deficit    = Math.max(0, sku.forecast14 + sku.ss - sku.stock);
+  const halfOrder  = Math.round(deficit * 0.5);
+  const conservative = Math.round(deficit * 0.65);
+  const daysLeft   = sku.stock > 0 ? Math.round((sku.stock / (sku.forecast14 / 14))) : 0;
+  const isImport   = sku.category === 'Importado';
+
+  // Consequence of doing nothing
+  document.getElementById('reject-consequence-text').textContent =
+    `Con el stock actual (${sku.stock}u) tenés aproximadamente ${daysLeft} días antes de quedarte sin ${sku.name}. ` +
+    (daysLeft < 10
+      ? `⚠ Es poco tiempo — no hacer nada tiene un riesgo real de quiebre de ventas.`
+      : `Tenés margen para decidir con más calma.`);
+
+  // Build alternatives
+  const options = isImport ? [
+    {
+      icon: '📦',
+      title: `Aprobar cantidad reducida — ${conservative}u (orden conservadora)`,
+      desc: `Pedís un 35% menos que lo sugerido. Reduce el riesgo de sobrestock si la demanda es menor a lo esperado. El sistema emite el draft de importación por ${conservative}u.`,
+      action: `PARTIAL_APPROVE · ${conservative}u · orden conservadora`,
+      label: `Aprobar ${conservative}u`,
+      cls: 'btn-green'
+    },
+    {
+      icon: '⏸',
+      title: 'Pausar y pedir un segundo análisis',
+      desc: `El sistema vuelve a correr el pronóstico con datos actualizados y te presenta una nueva recomendación en 24 horas. Mientras tanto no se hace nada.`,
+      action: `PAUSE_REQUEST · reanálisis solicitado · nuevo pronóstico en 24h`,
+      label: 'Pedir reanálisis',
+      cls: 'btn-scenario'
+    },
+    {
+      icon: '🚫',
+      title: 'No hacer nada por ahora',
+      desc: `El sistema no emite ninguna orden. Quedás con ${sku.stock}u actuales. El Monitor te va a volver a alertar cuando el stock baje del nivel de seguridad (${sku.ss}u).`,
+      action: `REJECT_NO_ACTION · stock actual: ${sku.stock}u · monitoreo activo`,
+      label: 'No hacer nada',
+      cls: 'btn-red'
+    }
+  ] : [
+    {
+      icon: '📦',
+      title: `Aprobar cantidad conservadora — ${conservative}u`,
+      desc: `Aprobás el 65% de lo sugerido. Si la demanda resulta menor a la proyectada, evitás sobrestock. La fábrica produce ${conservative}u con lead time de ${sku.leadTime} días.`,
+      action: `PARTIAL_APPROVE · ${conservative}u · orden conservadora`,
+      label: `Aprobar ${conservative}u`,
+      cls: 'btn-green'
+    },
+    {
+      icon: '🔀',
+      title: `Aprobar mitad ahora — ${halfOrder}u, revisar en 7 días`,
+      desc: `Producís ${halfOrder}u urgente para no quedarte sin stock. En 7 días el sistema te vuelve a presentar la orden por el resto según cómo evolucione la demanda real.`,
+      action: `SPLIT_ORDER · primera entrega ${halfOrder}u · revisión en 7d`,
+      label: `Aprobar ${halfOrder}u ahora`,
+      cls: 'btn-green'
+    },
+    {
+      icon: '⏸',
+      title: 'Pausar y pedir reanálisis',
+      desc: `El sistema vuelve a correr el pronóstico con datos actualizados. Te presenta una nueva recomendación en 24 horas. Útil si hay información de campaña que aún no está cargada.`,
+      action: `PAUSE_REQUEST · reanálisis solicitado · nuevo pronóstico en 24h`,
+      label: 'Pedir reanálisis',
+      cls: 'btn-scenario'
+    },
+    {
+      icon: '🚫',
+      title: 'No hacer nada por ahora',
+      desc: `No se emite ninguna orden. Con ${sku.stock}u actuales tenés ${daysLeft} días. El Monitor va a volver a alertarte cuando el stock baje del mínimo de seguridad (${sku.ss}u).`,
+      action: `REJECT_NO_ACTION · stock: ${sku.stock}u · monitoreo activo`,
+      label: 'No hacer nada',
+      cls: 'btn-red'
+    }
+  ];
+
+  document.getElementById('reject-options').innerHTML = options.map((o, i) => `
+    <div style="background:#0d0d0f;border:1px solid #27272a;border-radius:10px;padding:14px;">
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;">
+        <span style="font-size:18px;flex-shrink:0;">${o.icon}</span>
+        <div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:3px;">${o.title}</div>
+          <div style="font-size:12px;color:#a1a1aa;line-height:1.6;">${o.desc}</div>
+        </div>
+      </div>
+      <button class="${o.cls}" onclick="executeAlternative(${i})" style="width:100%;padding:8px;font-size:12px;text-align:center;border-radius:8px;">${o.label}</button>
+    </div>`).join('');
+
+  // Store options for executeAlternative
+  window._rejectOptions = options;
+
+  // Swap screens
+  document.getElementById('modal-content').style.display = 'none';
+  document.getElementById('modal-reject-screen').style.display = 'block';
+  document.getElementById('modal-header-title').textContent = '¿Qué hacemos en cambio?';
+  document.getElementById('modal-header-sub').textContent = 'Elegí una alternativa — no hacer nada también es una decisión';
+  document.getElementById('modal-footer').innerHTML = `
+    <button onclick="backToReview()" style="background:#27272a;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;color:#a1a1aa;cursor:pointer;width:100%;">← Volver a revisar la orden original</button>`;
+}
+
+function backToReview() {
+  document.getElementById('modal-content').style.display = 'block';
+  document.getElementById('modal-reject-screen').style.display = 'none';
+  document.getElementById('modal-header-title').textContent = 'Revisión Humana Requerida';
+  document.getElementById('modal-header-sub').textContent = 'Firma requerida antes de que el sistema actúe';
+  document.getElementById('modal-footer').innerHTML = `<div style="display:flex;gap:10px;">
+    <button class="btn-green flex-1" onclick="modalApprove()" style="padding:11px;font-size:13px;">✓ Aprobar orden completa</button>
+    <button class="btn-red flex-1" onclick="showRejectScreen()" style="padding:11px;font-size:13px;">✗ No aprobar</button>
+  </div>`;
+}
+
+function executeAlternative(idx) {
+  const opt = window._rejectOptions[idx];
+  if (!opt) return;
+  const sku = SKU_DATA.find(s => s.id === currentModalSkuId);
+  addAuditEntry('Director + Humano', `ALT_HITL · ${currentModalSkuId} · ${opt.action}`, sku ? sku.cs : 0.75, 0.72, 'Human Operator', opt.action.includes('NO_ACTION') ? 'rejected' : 'executed');
+  const isNoAction = opt.action.includes('NO_ACTION');
+  const isPause    = opt.action.includes('PAUSE');
+  setBadge(currentModalSkuId,
+    isNoAction ? '— Sin acción' : isPause ? '⏸ Reanálisis' : '◑ Parcial',
+    isNoAction ? 'badge-gray'  : isPause ? 'badge-blue'    : 'badge-yellow');
+  closeHITLModal();
+  showToast(
+    isNoAction ? `Sin acción — Monitor activo para ${currentModalSkuId}` :
+    isPause    ? `Reanálisis solicitado — nueva recomendación en 24h` :
+                 `✓ Alternativa aprobada — ${opt.title}`,
+    isNoAction ? 'warning' : 'success');
+  appState.hitlActive = false;
+}
+
+function setBadge(skuId, text, cls) {
+  // Update action badge in decisions table
+  const badge = document.querySelector(`[data-hitl-sku="${skuId}"]`);
+  if (badge) {
+    badge.textContent = text;
+    badge.className = 'badge ' + cls;
+    badge.style.cursor = 'default';
+    badge.onclick = null;
+  }
+
+  // Hide the pending card in the decisions section
+  const card = document.getElementById('hitl-card-' + skuId);
+  if (card) {
+    card.style.transition = 'opacity .3s, max-height .4s';
+    card.style.opacity = '0';
+    setTimeout(() => {
+      card.style.display = 'none';
+      // If no cards remain visible, hide the whole pending section
+      const remaining = document.querySelectorAll('#hitl-cards .hitl-card:not([style*="display: none"])');
+      if (remaining.length === 0) {
+        const section = document.getElementById('hitl-pending-section');
+        if (section) section.style.display = 'none';
+        const hbadge = document.getElementById('hitl-badge');
+        if (hbadge) hbadge.style.display = 'none';
+      }
+    }, 320);
+  }
+}
+
+function modalReject() { showRejectScreen(); } // legacy alias
+
+function addAuditEntry(agent, action, cs, rs, approvedBy, status) {
+  const now = new Date();
+  const ts = now.toISOString().replace('T',' ').slice(0,19);
+  const trace = Math.random().toString(36).slice(2,6) + '-' + Math.random().toString(36).slice(2,6);
+  appState.auditLog.unshift({ ts, trace, agent, action, cs, rs, approvedBy, status });
+  if (appState.currentView === 'audit') renderAudit();
+}
+
+// ==================== SCENARIO SIMULATOR ====================
+const SCENARIOS = {
+  campaign: {
+    label: '🚀 Hot Sale — Campaña agresiva',
+    steps: [
+      { delay:300, icon:'pipe-event', arr:'arr-1', level:'info', msg:'[EVENTO] Hot Sale iniciado. Presupuesto pauta: $US 15.000 (×3 normal). Descuentos: hasta 40%.' },
+      { delay:1000, icon:'pipe-forecast', arr:'arr-2', level:'warn', msg:'[FORECAST] Actualizando pronóstico COL-001... Multiplicador histórico: ×2.25. Demanda proyectada: 1.800u (era 800u). CS=0.61 — por debajo de umbral 0.65.' },
+      { delay:2000, icon:'pipe-planner', arr:'arr-3', level:'info', msg:'[PLANNER] Calculando stock necesario: P90=1.800u + SS=180u - Stock=312u = Déficit 1.668u. Orden sugerida: 1.500u · $US 9.000.' },
+      { delay:3000, icon:'pipe-monitor', arr:'arr-4', level:'warn', msg:'[MONITOR] ⚠ Confianza del pronóstico baja (CS=0.61) y valor de orden ($US 9.000) supera límite automático. Se requiere aprobación humana.' },
+      { delay:4000, icon:'pipe-director', arr:'arr-5', level:'warn', msg:'[DIRECTOR] RS=0.71 supera umbral autónomo. Preparando escalamiento a operador humano. Construyendo contexto con alternativas A/B/C.' },
+      { delay:5000, icon:'pipe-hitl', arr:'arr-6', level:'error', msg:'[HITL] 👤 Notificación enviada a Jefe de Operaciones vía PagerDuty. SLA respuesta: 30 min. Sistema en espera — NO actúa.' },
+      { delay:6500, icon:'pipe-exec', arr:null, level:'success', msg:'[EJECUTAR] Operador humano aprobó 1.000u (modificó cantidad). Orden OP-2290 emitida al ERP. Audit trail: trace-a9f2-4b81.' },
+    ],
+    metrics: { stock:312, demand:1800, rs:0.71, cs:0.61, order:'1.000u · $US 6.000', rsColor:'#f87171', rsLabel:'→ HITL' }
+  },
+  supplier: {
+    label: '🚢 Retraso proveedor importado',
+    steps: [
+      { delay:300, icon:'pipe-event', arr:'arr-1', level:'info', msg:'[EVENTO] ERP actualiza: Orden OP-IMP-023 retrasada. Fecha entrega: 15-jun → 23-jun (+8 días).' },
+      { delay:1000, icon:'pipe-forecast', arr:'arr-2', level:'info', msg:'[FORECAST] Recalculando fecha crítica de quiebre. Stock actual IMP-023: 8u. SS: 15u. Demanda: 3u/día.' },
+      { delay:2000, icon:'pipe-planner', arr:'arr-3', level:'warn', msg:'[PLANNER] Proyección al 23-jun: 8u - (8 días × 3u/día) = -16u → QUIEBRE en día 3. Margen de seguridad INSUFICIENTE.' },
+      { delay:3000, icon:'pipe-monitor', arr:'arr-4', level:'error', msg:'[MONITOR] 🔴 CRITICAL: Quiebre proyectado IMP-023 en 3 días. Impacto ventas estimado: $US 2.100/día. Escalando.' },
+      { delay:4000, icon:'pipe-director', arr:'arr-5', level:'warn', msg:'[DIRECTOR] Evaluando opciones: A) Proveedor alternativo BR (+12% precio, 20 días) B) AR (+8%, 25 días) C) Aceptar quiebre. Recomendación: A.' },
+      { delay:5000, icon:'pipe-hitl', arr:'arr-6', level:'error', msg:'[HITL] 👤 REPLENISHMENT NUNCA confirma importaciones. Draft OP-ALT-BR enviado a Jefe de Compras. Sistema en espera.' },
+      { delay:6500, icon:'pipe-exec', arr:null, level:'success', msg:'[EJECUTAR] Jefe de Compras contactó Proveedor Brasil. Draft aprobado y firmado. Lead time 20 días: llega antes de fecha crítica.' },
+    ],
+    metrics: { stock:8, demand:45, rs:0.82, cs:0.88, order:'Draft importación', rsColor:'#f87171', rsLabel:'→ HITL siempre' }
+  },
+  budget: {
+    label: '📈 Presupuesto marketing ×2 a T-2 días',
+    steps: [
+      { delay:300, icon:'pipe-event', arr:'arr-1', level:'warn', msg:'[EVENTO] Marketing actualizó presupuesto campaña: $US 5.000 → $US 10.000. T-2 días del evento.' },
+      { delay:1000, icon:'pipe-forecast', arr:'arr-2', level:'warn', msg:'[FORECAST] Recalculando con nuevo presupuesto. Pronóstico: 800u → 1.400u (+75%). CS=0.55 — campaña sin histórico exacto a este nivel.' },
+      { delay:2000, icon:'pipe-planner', arr:'arr-3', level:'error', msg:'[PLANNER] Lead time producción: 12 días. T-2 días: IMPOSIBLE cubrir déficit de 600u por producción propia. Flag: CAPACIDAD INSUFICIENTE.' },
+      { delay:3000, icon:'pipe-monitor', arr:'arr-4', level:'warn', msg:'[MONITOR] ⚠ Circuit Breaker CB-5 validó campaña: datos coherentes. CB-2: sin loops. Alerta WARNING al Director.' },
+      { delay:4000, icon:'pipe-director', arr:'arr-5', level:'warn', msg:'[DIRECTOR] Opciones: A) Reducir budget a $US 7K (1.050u cubiertos) B) Pauta completa + límite de venta online. Recomendación: B.' },
+      { delay:5000, icon:'pipe-hitl', arr:'arr-6', level:'error', msg:'[HITL] 👤 Escalado a Jefe de Ops + Marketing. Decisión conjunta requerida. SLA: 30 minutos.' },
+      { delay:6500, icon:'pipe-exec', arr:null, level:'success', msg:'[EJECUTAR] Decisión: Opción B aprobada. Límite venta e-commerce: 800u. Tiendas físicas: sin límite. Monitor activo cada 5 min.' },
+    ],
+    metrics: { stock:45, demand:1400, rs:0.68, cs:0.55, order:'Límite 800u web', rsColor:'#facc15', rsLabel:'→ HITL' }
+  },
+  demand_drop: {
+    label: '📉 Caída inesperada de demanda -55%',
+    steps: [
+      { delay:300, icon:'pipe-event', arr:'arr-1', level:'info', msg:'[EVENTO] Monitor detecta: ventas reales hora 1 = 18u vs 40u proyectadas (-55%). Inusual para este horario.' },
+      { delay:1000, icon:'pipe-forecast', arr:'arr-2', level:'warn', msg:'[FORECAST] Recalculando pronóstico. Nueva demanda proyectada 14d: 54u (era 120u). CS=0.58 — cambio brusco reduce confianza.' },
+      { delay:2000, icon:'pipe-planner', arr:'arr-3', level:'info', msg:'[PLANNER] Evaluando plan activo: orden OP-2289 (180u en producción) → con nueva demanda generaría sobrestock del 180%. Alerta.' },
+      { delay:3000, icon:'pipe-monitor', arr:'arr-4', level:'warn', msg:'[MONITOR] ⚠ WARNING: Overstock Index proyectado: +180%. Si OP-2289 continúa, ICC aumenta $US 4.200. Recomendación: pausar o reducir.' },
+      { delay:4000, icon:'pipe-director', arr:'arr-5', level:'warn', msg:'[DIRECTOR] OP-2289 en estado EN_PRODUCCIÓN. Sistema NO puede cancelar autónomamente (regla rollback). Escala a Jefe de Producción.' },
+      { delay:5000, icon:'pipe-hitl', arr:'arr-6', level:'error', msg:'[HITL] 👤 Humano obligatorio — producción en curso es IRREVERSIBLE automáticamente. Director presenta: reducir qty vs. continuar vs. redirigir.' },
+      { delay:6500, icon:'pipe-exec', arr:null, level:'success', msg:'[EJECUTAR] Jefe de Producción redujo OP-2289: 180u → 80u. Sobrestock evitado. Ahorro estimado: $US 3.800. Audit registrado.' },
+    ],
+    metrics: { stock:45, demand:54, rs:0.52, cs:0.58, order:'Reducir OP-2289', rsColor:'#facc15', rsLabel:'→ Director + HITL' }
+  }
+};
+
+let simTimeout = [];
+
+function clearSimTimeouts() { simTimeout.forEach(t => clearTimeout(t)); simTimeout = []; }
+
+function runScenario(type) {
+  clearSimTimeouts();
+  const sc = SCENARIOS[type];
+  appState.activeScenario = type;
+
+  // Reset pipeline
+  ['pipe-event','pipe-forecast','pipe-planner','pipe-monitor','pipe-director','pipe-hitl','pipe-exec'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) { el.classList.remove('active','done','warn'); }
+  });
+  ['arr-1','arr-2','arr-3','arr-4','arr-5','arr-6'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.classList.remove('active');
+  });
+
+  // Style active button
+  ['btn-sc1','btn-sc2','btn-sc3','btn-sc4'].forEach(b => document.getElementById(b).classList.remove('running'));
+  const btnMap = { campaign:'btn-sc1', supplier:'btn-sc2', budget:'btn-sc3', demand_drop:'btn-sc4' };
+  document.getElementById(btnMap[type]).classList.add('running');
+
+  // Clear log
+  const log = document.getElementById('event-log');
+  log.innerHTML = `<div class="log-gray log-entry">[sistema] Iniciando simulación: ${sc.label}</div><div class="log-gray log-entry">[sistema] ─────────────────────────────────</div>`;
+
+  // Hide HITL card
+  document.getElementById('hitl-approval-card').style.display = 'none';
+
+  sc.steps.forEach((step, i) => {
+    const t = setTimeout(() => {
+      // Activate pipeline node
+      const node = document.getElementById(step.icon);
+      if(node) { node.classList.add('active'); }
+      if(step.arr) {
+        const arr = document.getElementById(step.arr);
+        if(arr) arr.classList.add('active');
+      }
+
+      // Mark previous as done
+      if(i > 0) {
+        const prev = sc.steps[i-1];
+        const prevNode = document.getElementById(prev.icon);
+        if(prevNode) { prevNode.classList.remove('active'); prevNode.classList.add(prev.level==='error'||prev.level==='warn'?'warn':'done'); }
+      }
+
+      // Add log entry
+      const levelClass = { info:'log-info', warn:'log-warn', error:'log-error', success:'log-success' };
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${levelClass[step.level]} flow-step`;
+      entry.textContent = step.msg;
+      log.appendChild(entry);
+      setTimeout(() => entry.classList.add('appear'), 50);
+      log.scrollTop = log.scrollHeight;
+
+      // Last step: show HITL or completion
+      if(i === sc.steps.length - 1) {
+        // Update metrics
+        updateSimMetrics(sc.metrics);
+
+        // Show HITL card for certain scenarios
+        if(type !== 'demand_drop') {
+          const hitlCard = document.getElementById('hitl-approval-card');
+          const hitlDetails = document.getElementById('hitl-details');
+          hitlDetails.innerHTML = `<strong>Escenario:</strong> ${sc.label}<br><strong>¿Por qué se requiere aprobación?</strong> El valor de la orden supera el límite automático o hay alta incertidumbre en el pronóstico.<br><strong>Confianza del pronóstico:</strong> ${sc.metrics.cs < 0.65 ? '<span style="color:#f87171;">Baja — campaña sin historial exacto</span>' : '<span style="color:#4ade80;">Aceptable</span>'}<br><strong>Acción sugerida:</strong> ${sc.metrics.order}`;
+          hitlCard.style.display = 'block';
+        }
+
+        // Update audit
+        addAuditEntry('Director', `SIM_SCENARIO_${type.toUpperCase()} · RS=${sc.metrics.rs} · CS=${sc.metrics.cs}`, sc.metrics.cs, sc.metrics.rs, type.includes('campaign')||type.includes('supplier')||type.includes('budget') ? 'PENDING HUMAN' : 'Director Agent', 'escalated');
+        showToast(`Escenario completado: ${sc.label.slice(2)}`, 'info');
+      }
+    }, step.delay);
+    simTimeout.push(t);
+  });
+}
+
+function updateSimMetrics(m) {
+  animateValue('sim-stock', appState.stock_col001, m.stock, 'u');
+  animateValue('sim-demand', appState.demand_col001, m.demand, 'u');
+  document.getElementById('sim-risk').textContent = m.rs > 0.6 ? '👤 Humano' : m.rs > 0.3 ? '🔄 Director' : '🤖 Automático';
+  document.getElementById('sim-risk').style.color = m.rsColor;
+  document.getElementById('sim-risk-sub').textContent = m.rs > 0.6 ? 'requiere aprobación' : m.rs > 0.3 ? 'director aprueba' : 'sin intervención';
+  document.getElementById('sim-cs').textContent = m.cs;
+  document.getElementById('sim-cs').style.color = m.cs >= 0.65 ? '#a78bfa' : '#f87171';
+  document.getElementById('sim-cs-sub').textContent = m.cs >= 0.65 ? 'Confianza OK' : '⚠ Bajo umbral';
+  document.getElementById('sim-order').textContent = m.order;
+  document.getElementById('sim-order-sub').textContent = m.rs > 0.6 ? 'requiere aprobación humana' : 'en evaluación';
+  appState.stock_col001 = m.stock;
+  appState.demand_col001 = m.demand;
+}
+
+function hitlApprove() {
+  document.getElementById('hitl-approval-card').style.display = 'none';
+  document.getElementById('event-log').insertAdjacentHTML('beforeend', '<div class="log-entry log-success flow-step">[HITL] ✓ Aprobado por operador humano. Orden emitida. Registrado en auditoría.</div>');
+  document.getElementById('event-log').scrollTop = document.getElementById('event-log').scrollHeight;
+  const last = document.getElementById('event-log').lastChild;
+  setTimeout(() => last.classList.add('appear'), 50);
+  showToast('✓ Acción aprobada por operador humano', 'success');
+  addAuditEntry('Director + Human', 'HITL_APPROVE · operador confirmó acción del sistema', 0.85, 0.71, 'Human Operator', 'executed');
+  document.getElementById(btnMap_current() || 'btn-sc1').classList.remove('running');
+}
+
+function btnMap_current() {
+  const map = { campaign:'btn-sc1', supplier:'btn-sc2', budget:'btn-sc3', demand_drop:'btn-sc4' };
+  return map[appState.activeScenario];
+}
+
+function hitlReject() {
+  document.getElementById('hitl-approval-card').style.display = 'none';
+  document.getElementById('event-log').insertAdjacentHTML('beforeend', '<div class="log-entry log-error flow-step">[HITL] ✗ Rechazado por operador humano. Sistema no actúa. Registrado en auditoría.</div>');
+  document.getElementById('event-log').scrollTop = document.getElementById('event-log').scrollHeight;
+  showToast('✗ Acción rechazada — sistema no ejecutó', 'warning');
+  addAuditEntry('Director + Human', 'HITL_REJECT · operador rechazó acción propuesta', 0.85, 0.71, 'Human Operator', 'rejected');
+}
+
+// ==================== CHARTS ====================
+function initCharts() {
+  // Forecast chart
+  const fCtx = document.getElementById('forecastChart').getContext('2d');
+  const labels14 = [];
+  const today = new Date();
+  for(let i=-13;i<=14;i++){
+    const d=new Date(today);d.setDate(d.getDate()+i);
+    labels14.push(d.toLocaleDateString('es',{month:'short',day:'numeric'}));
+  }
+  const historical = [32,28,41,38,35,42,45,39,44,48,41,37,43,45];
+  const forecastP50 = [null,null,null,null,null,null,null,null,null,null,null,null,null,45,48,52,58,61,55,63,67,59,64,71,68,73,78,72];
+  const p10 = Array(14).fill(null).concat([38,41,44,48,51,45,52,55,48,53,59,55,60,64,59]);
+  const p90 = Array(14).fill(null).concat([58,63,69,74,77,70,80,85,74,81,89,84,92,97,90]);
+
+  appState.forecastChart = new Chart(fCtx, {
+    type:'line',
+    data:{
+      labels:labels14,
+      datasets:[
+        { label:'Real', data:[...historical,...Array(14).fill(null)], borderColor:'#818cf8', borderWidth:2.5, pointRadius:2, tension:0.3, spanGaps:false },
+        { label:'Forecast P50', data:forecastP50, borderColor:'#22d3ee', borderWidth:2, borderDash:[5,3], pointRadius:2, tension:0.3, spanGaps:false },
+        { label:'Banda P10-P90', data:p90, borderColor:'rgba(99,102,241,0)', backgroundColor:'rgba(99,102,241,0.08)', fill:'+1', tension:0.3, pointRadius:0 },
+        { label:'P10', data:p10, borderColor:'rgba(99,102,241,0)', fill:false, tension:0.3, pointRadius:0 },
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{display:false}, tooltip:{ backgroundColor:'#18181b', borderColor:'#27272a', borderWidth:1, titleColor:'#fafafa', bodyColor:'#a1a1aa' }},
+      scales:{
+        x:{ grid:{color:'#1f1f23'}, ticks:{color:'#71717a',font:{size:10},maxRotation:0,maxTicksLimit:7}},
+        y:{ grid:{color:'#1f1f23'}, ticks:{color:'#71717a',font:{size:10}}, title:{display:true,text:'Unidades',color:'#71717a',font:{size:10}}}
+      },
+      interaction:{mode:'index',intersect:false},
+    }
+  });
+
+  // Stock chart
+  if (appState.stockChart) { appState.stockChart.destroy(); appState.stockChart = null; }
+  const sCtx = document.getElementById('stockChart').getContext('2d');
+  const topSkus = SKU_DATA.slice(0,6);
+  appState.stockChart = new Chart(sCtx, {
+    type:'bar',
+    data:{
+      labels:topSkus.map(s=>s.id),
+      datasets:[
+        { label:'Stock actual', data:topSkus.map(s=>s.stock), backgroundColor:topSkus.map(s=>s.stock<=s.ss?'rgba(248,113,113,0.7)':s.stock<=s.ss*1.5?'rgba(250,204,21,0.7)':'rgba(99,102,241,0.7)'), borderRadius:4 },
+        { label:'Stock seguridad', data:topSkus.map(s=>s.ss), backgroundColor:'rgba(113,113,122,0.3)', borderRadius:4 }
+      ]
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{ backgroundColor:'#18181b', borderColor:'#27272a', borderWidth:1, titleColor:'#fafafa', bodyColor:'#a1a1aa' }},
+      scales:{
+        x:{ grid:{color:'#1f1f23'}, ticks:{color:'#71717a',font:{size:10}}, beginAtZero:true },
+        y:{ grid:{display:false}, ticks:{color:'#a1a1aa',font:{size:11}} }
+      }
+    }
+  });
+}
+
+// ==================== UTILS ====================
+function animateValue(id, from, to, suffix='') {
+  const el = document.getElementById(id);
+  if(!el) return;
+  const step = (to - from) / 20;
+  let current = from;
+  let count = 0;
+  const interval = setInterval(() => {
+    current += step; count++;
+    el.textContent = Math.round(current) + suffix;
+    if(count >= 20) { el.textContent = to + suffix; clearInterval(interval); }
+  }, 40);
+}
+
+let toastCount = 0;
+function showToast(msg, type='info') {
+  const container = document.getElementById('toastContainer');
+  const icons = { success:'✓', warning:'⚠', info:'ℹ', error:'✗' };
+  const colors = { success:'#4ade80', warning:'#facc15', info:'#818cf8', error:'#f87171' };
+  const id = 'toast-' + (toastCount++);
+  const div = document.createElement('div');
+  div.className = 'toast';
+  div.id = id;
+  div.innerHTML = `<span style="color:${colors[type]};font-weight:700;">${icons[type]}</span><span style="font-size:13px;color:#fafafa;">${msg}</span>`;
+  container.appendChild(div);
+  setTimeout(() => div.classList.add('show'), 50);
+  setTimeout(() => { div.classList.remove('show'); setTimeout(() => div.remove(), 350); }, 4000);
+}
+
+// ==================== CLOCK ====================
+function updateClock() {
+  const now = new Date();
+  document.getElementById('system-clock').textContent = now.toLocaleTimeString('es', {hour12:false});
+}
+
+// ==================== INIT ====================
+function init() {
+  renderAgentsMini();
+  renderAlertsMini();
+  initCharts();
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // Populate decisions HITL section
+  const hitlSection = document.getElementById('hitl-pending-section');
+  const hitlCards = document.getElementById('hitl-cards');
+  if(hitlCards) {
+    hitlSection.style.display = 'block';
+    document.getElementById('hitl-badge').style.display = 'inline-flex';
+    hitlCards.innerHTML = `
+      <div class="hitl-card" id="hitl-card-IMP-023">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <span style="font-size:14px;">👤</span>
+          <span style="font-size:13px;font-weight:600;">Orden importación IMP-023</span>
+          <span class="badge badge-yellow ml-auto">Aprobación requerida</span>
+        </div>
+        <div style="font-size:12px;color:#a1a1aa;margin-bottom:10px;">Smart TV 55" 4K · Proveedor ABC (Brasil) · $US 12.400 · Lead time: 45 días. Las importaciones siempre requieren firma humana.</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-green flex-1" onclick="showModal('IMP-023','Smart TV 55 4K',12400)">Ver detalles y decidir</button>
+        </div>
+      </div>
+      <div class="hitl-card" id="hitl-card-COL-001">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <span style="font-size:14px;">👤</span>
+          <span style="font-size:13px;font-weight:600;">Orden producción COL-001 urgente</span>
+          <span class="badge badge-yellow ml-auto">Aprobación requerida</span>
+        </div>
+        <div style="font-size:12px;color:#a1a1aa;margin-bottom:10px;">Colchón Premium King · Orden urgente 400u · $US 7.200 · Campaña activa. Supera límite autónomo $US 5.000.</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-green flex-1" onclick="showModal('COL-001','Colchón Premium King',7200)">Ver detalles y decidir</button>
+        </div>
+      </div>`;
+  }
+
+  // Simulate live activity
+  setTimeout(() => showToast('🔵 Sistema iniciado — 7 agentes activos', 'info'), 800);
+  setTimeout(() => showToast('⚠ TEX-007: Stock crítico detectado', 'warning'), 2500);
+  setTimeout(() => showToast('🤖 Agente Planificador calculando plan...', 'info'), 4500);
+}
+
+// ==================== CONFIG ====================
+
+function renderConfig() {
+  // Pre-fill from appState if saved
+  const cfg = appState.config || {};
+  if (cfg.company)  document.getElementById('cfg-company').value  = cfg.company;
+  if (cfg.budget)   document.getElementById('cfg-budget').value   = cfg.budget;
+  if (cfg.hitlThreshold) document.getElementById('cfg-hitl-threshold').value = cfg.hitlThreshold;
+
+  // Build SKU config list
+  renderSKUConfigList();
+}
+
+function renderSKUConfigList() {
+  const list = document.getElementById('sku-config-list');
+  if (!list) return;
+  if (SKU_DATA.length === 0) {
+    list.innerHTML = '<div style="text-align:center;color:#52525b;padding:20px;font-size:12px;">No hay productos. Agregá uno con el botón de abajo.</div>';
+    return;
+  }
+  const stateColor = s => s.stock <= s.ss ? '#f87171' : s.stock <= s.ss * 1.5 ? '#facc15' : '#4ade80';
+  const stateLabel = s => s.stock <= s.ss ? 'Critical' : s.stock <= s.ss * 1.5 ? 'Risk' : 'Stable';
+  list.innerHTML = SKU_DATA.map((s, i) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#0d0d0f;border-radius:8px;margin-bottom:6px;">
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+          <span style="font-family:'Courier New',monospace;font-size:11px;color:#818cf8;">${s.id}</span>
+          <span style="font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.name}</span>
+        </div>
+        <div style="font-size:10px;color:#71717a;">
+          ${s.category} · Stock: <span style="color:${stateColor(s)};font-weight:600;">${s.stock}u</span>
+          · SS: ${s.ss}u · LT: ${s.leadTime}d
+          · <span style="color:${stateColor(s)};">${stateLabel(s)}</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:5px;flex-shrink:0;">
+        <button onclick="openSKUModal(${i})" style="background:#27272a;border:none;border-radius:6px;padding:5px 9px;font-size:11px;font-weight:600;color:#a1a1aa;cursor:pointer;">✏ Editar</button>
+        <button onclick="removeSKU(${i})" style="background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.2);border-radius:6px;padding:5px 8px;font-size:11px;cursor:pointer;">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+function openSKUModal(idx) {
+  const editing = idx !== null && idx !== undefined ? SKU_DATA[idx] : null;
+  document.getElementById('sku-modal-title').textContent = editing ? 'Editar producto' : 'Nuevo producto';
+  document.getElementById('sf-editing-idx').value = idx !== null && idx !== undefined ? idx : '';
+  document.getElementById('sf-id').value       = editing ? editing.id       : '';
+  document.getElementById('sf-name').value     = editing ? editing.name     : '';
+  document.getElementById('sf-stock').value    = editing ? editing.stock    : '';
+  document.getElementById('sf-ss').value       = editing ? editing.ss       : '';
+  document.getElementById('sf-lt').value       = editing ? editing.leadTime : '';
+  document.getElementById('sf-value').value    = editing ? editing.value    : '';
+  document.getElementById('sf-margin').value   = editing ? editing.margin   : '';
+  document.getElementById('sf-category').value = editing ? editing.category : 'Prod. propia';
+  // Base daily demand from SKU_BASE_DAILY if available
+  const base = editing ? (SKU_BASE_DAILY[editing.id] || '') : '';
+  document.getElementById('sf-base').value = base;
+  document.getElementById('sku-modal').classList.add('show');
+}
+
+function closeSKUModal() {
+  document.getElementById('sku-modal').classList.remove('show');
+}
+
+function saveSKU() {
+  const id       = document.getElementById('sf-id').value.trim();
+  const name     = document.getElementById('sf-name').value.trim();
+  const stock    = parseInt(document.getElementById('sf-stock').value)  || 0;
+  const ss       = parseInt(document.getElementById('sf-ss').value)     || 0;
+  const lt       = parseInt(document.getElementById('sf-lt').value)     || 7;
+  const value    = parseFloat(document.getElementById('sf-value').value)|| 0;
+  const margin   = parseInt(document.getElementById('sf-margin').value) || 50;
+  const base     = parseFloat(document.getElementById('sf-base').value) || 8;
+  const category = document.getElementById('sf-category').value;
+  const editIdx  = document.getElementById('sf-editing-idx').value;
+
+  if (!id || !name) { showToast('El código SKU y el nombre son obligatorios', 'warning'); return; }
+
+  const risk = stock <= ss ? 'critical' : stock <= ss * 1.5 ? 'medium' : 'low';
+  const entry = {
+    id, name, stock, ss, forecast14: Math.round(base * 14),
+    leadTime: lt, margin, risk, category, value,
+    cs: 0.75,
+    csReason: 'Producto nuevo — historial insuficiente para alta confianza'
+  };
+
+  // Update SKU_BASE_DAILY so the simulator uses correct base demand
+  SKU_BASE_DAILY[id] = base;
+
+  if (editIdx !== '') {
+    SKU_DATA[parseInt(editIdx)] = entry;
+    showToast(`✓ Producto "${name}" actualizado`, 'success');
+  } else {
+    SKU_DATA.push(entry);
+    showToast(`✓ Producto "${name}" agregado al sistema`, 'success');
+  }
+
+  closeSKUModal();
+  renderSKUConfigList();
+
+  // Update total SKU count on dashboard
+  const totalEl = document.getElementById('kpi-total');
+  if (totalEl) totalEl.textContent = SKU_DATA.length;
+}
+
+function addSKURow() { openSKUModal(null); } // legacy alias
+
+function removeSKU(i) {
+  const name = SKU_DATA[i].name;
+  SKU_DATA.splice(i, 1);
+  renderSKUConfigList();
+  showToast(`Producto "${name}" eliminado`, 'warning');
+}
+
+function saveConfig() {
+  const company   = document.getElementById('cfg-company').value.trim();
+  const budget    = parseFloat(document.getElementById('cfg-budget').value) || 50000;
+  const threshold = parseFloat(document.getElementById('cfg-hitl-threshold').value) || 5000;
+  const slack     = document.getElementById('cfg-slack').value.trim();
+  const emailOps  = document.getElementById('cfg-email-ops').value.trim();
+
+  appState.config = appState.config || {};
+  if (company)   { appState.config.company = company; document.getElementById('company-name-display').textContent = company; }
+  appState.config.budget        = budget;
+  appState.config.hitlThreshold = threshold;
+  if (slack)    appState.config.slackOk  = true;
+  if (emailOps) appState.config.emailOk  = true;
+
+  // Update KPI total SKUs
+  const totalEl = document.getElementById('kpi-total');
+  if (totalEl) totalEl.textContent = SKU_DATA.length;
+  const critEl = document.getElementById('kpi-critical');
+  if (critEl) critEl.textContent = SKU_DATA.filter(s => s.stock <= s.ss).length;
+
+  addAuditEntry('Sistema', `CONFIG_SAVED · empresa:${company || '—'} · budget:$US${budget} · HITL threshold:$US${threshold}`, 1.0, 0.0, 'Admin', 'executed');
+  showToast('✓ Configuración guardada — sistema actualizado', 'success');
+}
+
+function testERP() {
+  const url = document.getElementById('cfg-erp-url').value.trim();
+  if (!url) { showToast('Ingresá la URL del ERP primero', 'warning'); return; }
+  showToast('🔌 Probando conexión con ERP...', 'info');
+  setTimeout(() => {
+    if (appState.config) appState.config.erpOk = true;
+    addAuditEntry('Sistema', `ERP_CONNECTION_TEST · ${url} · simulado OK`, 1.0, 0.0, 'Admin', 'executed');
+    showToast('✓ Conexión ERP exitosa (simulada) — en producción FlowStock AI leería stock en tiempo real', 'success');
+  }, 1600);
+}
+
+function testSlack() {
+  const url     = document.getElementById('cfg-slack').value.trim();
+  const channel = document.getElementById('cfg-slack-channel').value.trim() || '#alertas-stock';
+  if (!url) { showToast('Ingresá el Slack Webhook URL primero', 'warning'); return; }
+  if (appState.config) appState.config.slackOk = true;
+  showToast(`✓ Slack configurado — notificaciones irían a ${channel}`, 'success');
+  addAuditEntry('Sistema', `SLACK_TEST · ${channel} · simulado OK`, 1.0, 0.0, 'Admin', 'executed');
+}
+
+document.addEventListener('DOMContentLoaded', init);
+
+// ==================== HISTORICAL GROWTH DATA (simulated from company records) ====================
+// Based on Divino's past campaigns by category — P50 with confidence interval
+const HIST_GROWTH = {
+  flash:     { base:175, range:[140,230], campaigns:['Hot Sale 2025','Flash Jun 2025','Black Friday 2025'],     note:'Campañas agresivas históricas: promedio +175%' },
+  seasonal:  { base:110, range:[80,145],  campaigns:['Cyberlunes 2025','Primavera 2025','Invierno 2025'],       note:'Campañas estacionales: promedio +110%' },
+  launch:    { base:85,  range:[50,130],  campaigns:['Lanzamiento Sommier 2025','Nueva línea TEX 2025'],        note:'Lanzamientos: mayor varianza, promedio +85%' },
+  clearance: { base:55,  range:[35,80],   campaigns:['Liquidación Invierno 2025','Fin de temporada 2024'],      note:'Liquidaciones: demanda moderada, promedio +55%' },
+  loyalty:   { base:35,  range:[20,55],   campaigns:['Programa fidelización Q1 2026','Club Divino 2025'],       note:'Fidelización: crecimiento acotado, promedio +35%' },
+};
+
+// Per-SKU adjustment based on historical performance
+const SKU_GROWTH_ADJ = {
+  'COL-001':+20, 'COL-002':+10, 'TEX-007':+15,
+  'TEX-012': -5, 'IMP-023':+25, 'IMP-031':+18, 'TEX-019': +8,
+};
+
+function calcHistoricalGrowth(category, skuList) {
+  const hist = HIST_GROWTH[category];
+  if (!hist) return { growth: 100, note: 'Sin historial', low: 70, high: 140 };
+  let adj = 0;
+  if (skuList.length > 0) {
+    adj = skuList.reduce((sum, sid) => sum + (SKU_GROWTH_ADJ[sid] || 0), 0) / skuList.length;
+  }
+  const growth = Math.round(hist.base + adj);
+  const low    = Math.round(hist.range[0] + adj * 0.5);
+  const high   = Math.round(hist.range[1] + adj * 0.5);
+  return { growth, low, high, note: hist.note, campaigns: hist.campaigns };
+}
+
+function updateGrowthDisplay() {
+  const cat  = document.getElementById('cf-category').value;
+  const skus = [...document.querySelectorAll('#cf-skus-checkboxes input:checked')].map(i => i.value);
+  const r    = calcHistoricalGrowth(cat, skus);
+  document.getElementById('cf-growth').value = r.growth;
+  const disp = document.getElementById('cf-growth-display');
+  if (!disp) return;
+  disp.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <span style="font-size:20px;font-weight:700;color:#818cf8;">+${r.growth}%</span>
+      <span style="font-size:11px;color:#71717a;">rango histórico: <span style="color:#a1a1aa;">+${r.low}% – +${r.high}%</span></span>
+    </div>
+    <div style="font-size:11px;color:#71717a;margin-bottom:4px;">📊 ${r.note}</div>
+    <div style="font-size:10px;color:#52525b;">Basado en: ${r.campaigns ? r.campaigns.join(', ') : '—'}</div>`;
+}
+
+let CAMPAIGNS = [
+  {
+    id: 'C001', name: 'Hot Sale 2026', category: 'flash', priority: 'high',
+    start: '2026-06-15', end: '2026-06-20', growth: 180,
+    skus: ['COL-001', 'COL-002', 'TEX-007'],
+    status: 'active'
+  },
+  {
+    id: 'C002', name: 'Cyberlunes Ropa de Cama', category: 'seasonal', priority: 'medium',
+    start: '2026-07-07', end: '2026-07-10', growth: 120,
+    skus: ['TEX-007', 'TEX-012', 'TEX-019'],
+    status: 'upcoming'
+  },
+  {
+    id: 'C003', name: 'Liquidación Invierno', category: 'clearance', priority: 'low',
+    start: '2026-08-01', end: '2026-08-15', growth: 60,
+    skus: ['TEX-019', 'COL-002'],
+    status: 'draft'
+  },
+];
+
+let campIdCounter = 4;
+
+const CAMP_CAT_LABELS = { seasonal:'Estacional', flash:'Flash / Agresiva', launch:'Lanzamiento', clearance:'Liquidación', loyalty:'Fidelización' };
+const CAMP_CAT_ICONS  = { seasonal:'🗓️', flash:'🚀', launch:'🆕', clearance:'🏷️', loyalty:'⭐' };
+const CAMP_PRIO_LABELS = { high:'Alta', medium:'Media', low:'Baja' };
+const CAMP_PRIO_COLORS = { high:'#f87171', medium:'#facc15', low:'#4ade80' };
+
+// Deterministic daily base demand per SKU (simulated from model)
+const SKU_BASE_DAILY = {
+  'COL-001': 8.5, 'COL-002': 6.2, 'TEX-007': 14.0,
+  'TEX-012': 10.8, 'IMP-023': 3.2, 'IMP-031': 2.8, 'TEX-019': 12.5
+};
+
+function campDuration(c) {
+  if (!c.start || !c.end) return 0;
+  const d = (new Date(c.end) - new Date(c.start)) / 86400000;
+  return Math.max(0, Math.round(d));
+}
+
+function campOpState(c) {
+  const totalDemand = c.skus.reduce((sum, sid) => {
+    const base = SKU_BASE_DAILY[sid] || 8;
+    const dur = campDuration(c);
+    return sum + base * dur * (1 + c.growth / 100);
+  }, 0);
+  const totalStock = c.skus.reduce((sum, sid) => {
+    const sku = SKU_DATA.find(s => s.id === sid);
+    return sum + (sku ? sku.stock : 0);
+  }, 0);
+  const ratio = totalStock / (totalDemand || 1);
+  if (ratio >= 1.2)  return { state:'Stable',             cls:'op-stable',       icon:'✅' };
+  if (ratio >= 0.85) return { state:'Risk',               cls:'op-risk',         icon:'⚠️' };
+  if (ratio >= 0.5)  return { state:'Replenishment Needed', cls:'op-replenishment', icon:'🔄' };
+  if (totalDemand > 0 && c.skus.some(sid => {
+    const sku = SKU_DATA.find(s => s.id === sid);
+    return sku && sku.stock > sku.ss * 3;
+  }))                return { state:'Capacity Limit',     cls:'op-capacity',     icon:'🏭' };
+  return             { state:'Critical',                  cls:'op-critical',     icon:'🔴' };
+}
+
+function renderCampaigns() {
+  const grid = document.getElementById('campaigns-grid');
+  const tbody = document.getElementById('camp-impact-tbody');
+  const now = new Date();
+
+  // Sync status
+  CAMPAIGNS.forEach(c => {
+    if (c.status === 'draft') return;
+    const s = new Date(c.start), e = new Date(c.end);
+    if (now >= s && now <= e) c.status = 'active';
+    else if (now < s) c.status = 'upcoming';
+    else if (now > e) c.status = 'ended';
+  });
+
+  const counts = { active:0, upcoming:0, draft:0 };
+  CAMPAIGNS.forEach(c => { if (counts[c.status] !== undefined) counts[c.status]++; });
+  document.getElementById('camp-count-active').textContent   = `${counts.active} activas`;
+  document.getElementById('camp-count-upcoming').textContent = `${counts.upcoming} próximas`;
+  document.getElementById('camp-count-draft').textContent    = `${counts.draft} borradores`;
+
+  const statusBadge = {
+    active:   '<span class="badge badge-green">● Activa</span>',
+    upcoming: '<span class="badge badge-blue">● Próxima</span>',
+    draft:    '<span class="badge badge-gray">● Borrador</span>',
+    ended:    '<span class="badge badge-orange">● Finalizada</span>',
+  };
+
+  grid.innerHTML = CAMPAIGNS.map(c => {
+    const dur = campDuration(c);
+    const os = campOpState(c);
+    const prioBullet = `<span style="color:${CAMP_PRIO_COLORS[c.priority]};font-weight:700;">●</span> ${CAMP_PRIO_LABELS[c.priority]}`;
+    const skuChips = c.skus.map(s => `<span style="background:#27272a;color:#a1a1aa;font-size:10px;padding:2px 7px;border-radius:4px;">${s}</span>`).join('');
+
+    return `
+    <div class="camp-card ${c.status === 'active' ? 'active-camp' : ''}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="font-size:22px;width:42px;height:42px;background:#27272a;border-radius:10px;display:flex;align-items:center;justify-content:center;">${CAMP_CAT_ICONS[c.category]}</div>
+          <div>
+            <div style="font-weight:600;font-size:14px;">${c.name}</div>
+            <div style="font-size:11px;color:#71717a;margin-top:1px;">${CAMP_CAT_LABELS[c.category]} · ${prioBullet}</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">
+          ${statusBadge[c.status] || ''}
+          <span class="op-state ${os.cls}">${os.icon} ${os.state}</span>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;">
+        <div style="background:#0d0d0f;border-radius:8px;padding:8px;text-align:center;">
+          <div style="font-size:10px;color:#71717a;margin-bottom:2px;">Duración</div>
+          <div style="font-size:16px;font-weight:700;">${dur}<span style="font-size:11px;font-weight:400;color:#71717a;">d</span></div>
+        </div>
+        <div style="background:#0d0d0f;border-radius:8px;padding:8px;text-align:center;">
+          <div style="font-size:10px;color:#71717a;margin-bottom:2px;">Crecimiento</div>
+          <div style="font-size:16px;font-weight:700;color:#818cf8;">+${c.growth}<span style="font-size:11px;font-weight:400;color:#71717a;">%</span></div>
+        </div>
+        <div style="background:#0d0d0f;border-radius:8px;padding:8px;text-align:center;">
+          <div style="font-size:10px;color:#71717a;margin-bottom:2px;">SKUs</div>
+          <div style="font-size:16px;font-weight:700;">${c.skus.length}</div>
+        </div>
+      </div>
+
+      <div style="font-size:11px;color:#71717a;margin-bottom:6px;">${c.start || '—'} → ${c.end || '—'}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px;">${skuChips}</div>
+
+      <div style="display:flex;gap:6px;">
+        <button onclick="openCampModal('${c.id}')" style="flex:1;background:#27272a;border:none;border-radius:7px;padding:7px;font-size:12px;font-weight:600;color:#a1a1aa;cursor:pointer;">✏ Editar</button>
+        <button onclick="duplicateCampaign('${c.id}')" style="flex:1;background:#27272a;border:none;border-radius:7px;padding:7px;font-size:12px;font-weight:600;color:#a1a1aa;cursor:pointer;">⧉ Duplicar</button>
+        <button onclick="deleteCampaign('${c.id}')" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);border-radius:7px;padding:7px 10px;font-size:12px;font-weight:600;color:#f87171;cursor:pointer;">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Impact table
+  tbody.innerHTML = CAMPAIGNS.filter(c => c.status !== 'ended').map(c => {
+    const dur = campDuration(c);
+    const os = campOpState(c);
+    const demandEst = Math.round(c.skus.reduce((s, sid) => {
+      const base = SKU_BASE_DAILY[sid] || 8;
+      return s + base * dur * (1 + c.growth / 100);
+    }, 0));
+    const stockReq = Math.round(demandEst * 1.2);
+    const prioBullet = `<span style="font-size:14px;color:${CAMP_PRIO_COLORS[c.priority]};">●</span> ${CAMP_PRIO_LABELS[c.priority]}`;
+    const statusBadgeMap = { active:'badge-green', upcoming:'badge-blue', draft:'badge-gray' };
+
+    return `<tr class="table-row" style="border-bottom:1px solid #1f1f23;">
+      <td style="padding:10px 12px;font-size:13px;font-weight:500;">${c.name}<br><span style="font-size:10px;color:#71717a;">${CAMP_CAT_LABELS[c.category]} · ${c.start} → ${c.end}</span></td>
+      <td style="padding:10px 12px;font-size:11px;color:#71717a;">${c.skus.join(', ')}</td>
+      <td style="padding:10px 12px;text-align:right;font-weight:700;color:#818cf8;">+${c.growth}%</td>
+      <td style="padding:10px 12px;text-align:right;font-weight:600;">${demandEst.toLocaleString()}u</td>
+      <td style="padding:10px 12px;text-align:right;color:#71717a;">${stockReq.toLocaleString()}u</td>
+      <td style="padding:10px 12px;text-align:center;"><span class="op-state ${os.cls}">${os.icon} ${os.state}</span></td>
+      <td style="padding:10px 12px;text-align:center;">${prioBullet}</td>
+    </tr>`;
+  }).join('');
+}
+
+function openCampModal(id) {
+  // Populate SKU checkboxes
+  const box = document.getElementById('cf-skus-checkboxes');
+  const editing = id ? CAMPAIGNS.find(c => c.id === id) : null;
+  box.innerHTML = SKU_DATA.map(s => {
+    const checked = editing && editing.skus.includes(s.id) ? 'checked' : '';
+    return `<label style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:#0d0d0f;border-radius:6px;cursor:pointer;font-size:12px;color:#a1a1aa;">
+      <input type="checkbox" value="${s.id}" ${checked} style="accent-color:#6366f1;cursor:pointer;"/>
+      <span>${s.id}</span>
+    </label>`;
+  }).join('');
+
+  document.getElementById('camp-modal-title').textContent = editing ? `Editar campaña` : 'Nueva campaña';
+  document.getElementById('cf-editing-id').value = id || '';
+
+  if (editing) {
+    document.getElementById('cf-name').value     = editing.name;
+    document.getElementById('cf-start').value    = editing.start;
+    document.getElementById('cf-end').value      = editing.end;
+    document.getElementById('cf-category').value = editing.category;
+    document.getElementById('cf-priority').value = editing.priority;
+    document.getElementById('cf-growth').value   = editing.growth;
+    updateDuration();
+  } else {
+    ['cf-name','cf-start','cf-end','cf-growth'].forEach(id => { document.getElementById(id).value = ''; });
+    document.getElementById('cf-duration').value = '';
+    document.getElementById('cf-category').value = 'seasonal';
+    document.getElementById('cf-priority').value = 'medium';
+  }
+
+  document.getElementById('camp-modal').classList.add('show');
+
+  // Wire date duration calc
+  document.getElementById('cf-start').addEventListener('change', updateDuration);
+  document.getElementById('cf-end').addEventListener('change', updateDuration);
+
+  // Wire growth auto-calc on category and SKU changes
+  document.getElementById('cf-category').addEventListener('change', updateGrowthDisplay);
+  document.querySelectorAll('#cf-skus-checkboxes input').forEach(cb => {
+    cb.addEventListener('change', updateGrowthDisplay);
+  });
+
+  // Initial growth display
+  updateGrowthDisplay();
+}
+
+function updateDuration() {
+  const s = document.getElementById('cf-start').value;
+  const e = document.getElementById('cf-end').value;
+  if (s && e) {
+    const d = Math.max(0, Math.round((new Date(e) - new Date(s)) / 86400000));
+    document.getElementById('cf-duration').value = d + ' días';
+  }
+}
+
+function closeCampModal() {
+  document.getElementById('camp-modal').classList.remove('show');
+}
+
+function saveCampaign() {
+  const name    = document.getElementById('cf-name').value.trim();
+  const start   = document.getElementById('cf-start').value;
+  const end     = document.getElementById('cf-end').value;
+  const growth  = parseInt(document.getElementById('cf-growth').value) || 0;
+  const cat     = document.getElementById('cf-category').value;
+  const prio    = document.getElementById('cf-priority').value;
+  const editId  = document.getElementById('cf-editing-id').value;
+  const skus    = [...document.querySelectorAll('#cf-skus-checkboxes input:checked')].map(i => i.value);
+
+  if (!name || !start || !end || skus.length === 0) {
+    showToast('Completá nombre, fechas y al menos un SKU', 'warning');
+    return;
+  }
+  const now = new Date();
+  const status = now < new Date(start) ? 'upcoming' : (now <= new Date(end) ? 'active' : 'draft');
+
+  if (editId) {
+    const idx = CAMPAIGNS.findIndex(c => c.id === editId);
+    if (idx !== -1) CAMPAIGNS[idx] = { id: editId, name, start, end, growth, category: cat, priority: prio, skus, status };
+    showToast(`✓ Campaña "${name}" actualizada`, 'success');
+  } else {
+    CAMPAIGNS.unshift({ id: 'C' + String(campIdCounter++).padStart(3,'0'), name, start, end, growth, category: cat, priority: prio, skus, status });
+    showToast(`✓ Campaña "${name}" creada`, 'success');
+  }
+
+  closeCampModal();
+  renderCampaigns();
+
+  const badge = document.getElementById('campaigns-badge');
+  badge.textContent = CAMPAIGNS.filter(c => c.status === 'active').length;
+  badge.style.display = CAMPAIGNS.filter(c => c.status === 'active').length ? 'inline-flex' : 'none';
+}
+
+function duplicateCampaign(id) {
+  const src = CAMPAIGNS.find(c => c.id === id);
+  if (!src) return;
+  const copy = { ...src, id: 'C' + String(campIdCounter++).padStart(3,'0'), name: src.name + ' (copia)', status: 'draft', skus: [...src.skus] };
+  CAMPAIGNS.push(copy);
+  showToast(`⧉ Campaña duplicada como borrador`, 'info');
+  renderCampaigns();
+}
+
+function deleteCampaign(id) {
+  const camp = CAMPAIGNS.find(c => c.id === id);
+  if (!camp) return;
+  CAMPAIGNS = CAMPAIGNS.filter(c => c.id !== id);
+  showToast(`🗑 Campaña "${camp.name}" eliminada`, 'warning');
+  renderCampaigns();
+}
+
+// ==================== CUSTOM SIMULATION ====================
+
+// Called on navigate to simulator — populate campaign dropdown
+function populateSimCampaigns() {
+  const sel = document.getElementById('sim-camp-select');
+  if (!sel) return;
+  // Keep first "manual" option, rebuild the rest
+  while (sel.options.length > 1) sel.remove(1);
+  CAMPAIGNS.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.id;
+    const dur = campDuration(c);
+    opt.textContent = `${c.name}  (${c.status === 'active' ? '● Activa' : c.status === 'upcoming' ? '○ Próxima' : '— Borrador'} · ${dur}d · ${c.skus.length} SKUs)`;
+    sel.appendChild(opt);
+  });
+}
+
+// When a campaign is selected from dropdown — auto-fill fields and filter SKUs to campaign only
+function simLoadCampaign() {
+  const campId = document.getElementById('sim-camp-select').value;
+  const hint   = document.getElementById('sim-camp-hint');
+  const skuSel = document.getElementById('sim-sku-select');
+
+  if (!campId) {
+    // Restore all SKUs
+    skuSel.innerHTML = SKU_DATA.map(s =>
+      `<option value="${s.id}">${s.id} · ${s.name}</option>`
+    ).join('');
+    hint.style.display = 'none';
+    simAutoGrowth();
+    return;
+  }
+
+  const camp = CAMPAIGNS.find(c => c.id === campId);
+  if (!camp) return;
+
+  // Filter SKU select to only the SKUs in this campaign
+  const campSkus = SKU_DATA.filter(s => camp.skus.includes(s.id));
+  skuSel.innerHTML = campSkus.map(s =>
+    `<option value="${s.id}">${s.id} · ${s.name}</option>`
+  ).join('');
+
+  // Duration from campaign dates
+  const dur = campDuration(camp);
+  if (dur > 0) document.getElementById('sim-input-duration').value = dur;
+
+  // Days to start — calculated from today to campaign start date
+  if (camp.start) {
+    const startDate = new Date(camp.start);
+    startDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const daysTo = Math.max(0, Math.round((startDate - today) / 86400000));
+    document.getElementById('sim-input-daysto').value = daysTo;
+  }
+
+  hint.style.display = 'block';
+  hint.textContent = `Mostrando ${campSkus.length} SKU${campSkus.length !== 1 ? 's' : ''} de la campaña "${camp.name}". Completá stock y capacidad de producción.`;
+  simAutoGrowth();
+}
+
+// Auto-calculate growth from historical data — same logic as campaigns page
+function simAutoGrowth() {
+  const skuId = document.getElementById('sim-sku-select').value;
+  const dur   = parseInt(document.getElementById('sim-input-duration').value) || 0;
+
+  // Detect category from selected campaign or infer from SKU
+  let category = 'seasonal';
+  const campId = document.getElementById('sim-camp-select').value;
+  if (campId) {
+    const camp = CAMPAIGNS.find(c => c.id === campId);
+    if (camp) category = camp.category;
+  } else {
+    // Infer: imported SKUs → flash profile, textile → seasonal
+    if (skuId.startsWith('IMP')) category = 'flash';
+    else if (skuId.startsWith('TEX')) category = 'seasonal';
+    else category = 'flash';
+  }
+
+  const r = calcHistoricalGrowth(category, [skuId]);
+  document.getElementById('sim-input-growth').value = r.growth;
+
+  const disp = document.getElementById('sim-growth-display');
+  if (!disp) return;
+
+  const durNote = dur > 0
+    ? `<span style="color:#fafafa;">durante ${dur} días</span>`
+    : `<span style="color:#52525b;">(ingresá la duración para ver la demanda total estimada)</span>`;
+
+  const baseDemand = SKU_BASE_DAILY[skuId] || 8;
+  const mult = 1 + r.growth / 100;
+  const totalEst = dur > 0 ? Math.round(baseDemand * mult * dur) : null;
+
+  disp.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">
+      <span style="font-size:18px;font-weight:700;color:#818cf8;">+${r.growth}%</span>
+      <span style="font-size:11px;color:#71717a;">rango: <span style="color:#a1a1aa;">+${r.low}% – +${r.high}%</span></span>
+      ${totalEst ? `<span style="margin-left:auto;font-size:12px;font-weight:600;color:#22d3ee;">≈ ${totalEst}u demanda total estimada</span>` : ''}
+    </div>
+    <div style="font-size:11px;color:#71717a;margin-bottom:3px;">📊 ${r.note}</div>
+    <div style="font-size:10px;color:#52525b;">Demanda base sin campaña: ${baseDemand}u/día → con campaña: ${(baseDemand * mult).toFixed(1)}u/día ${durNote}</div>`;
+}
+
+function runCustomSim() {
+  const skuId    = document.getElementById('sim-sku-select').value;
+  const stockVal = parseInt(document.getElementById('sim-input-stock').value);
+  const capVal   = parseInt(document.getElementById('sim-input-cap').value);
+  const durVal   = parseInt(document.getElementById('sim-input-duration').value);
+  const daysToVal= parseInt(document.getElementById('sim-input-daysto').value);
+  const growthVal= parseInt(document.getElementById('sim-input-growth').value);
+  const safetyVal= parseInt(document.getElementById('sim-input-safety').value);
+
+  const missing = [];
+  if (isNaN(stockVal))  missing.push('Stock actual');
+  if (isNaN(capVal))    missing.push('Capacidad de producción');
+  if (isNaN(durVal))    missing.push('Duración de la campaña');
+  if (isNaN(daysToVal)) missing.push('Días hasta inicio');
+  if (missing.length > 0) { showToast('Completá: ' + missing.join(', '), 'warning'); return; }
+
+  const sku     = SKU_DATA.find(s => s.id === skuId);
+  const stock   = stockVal;
+  const capWeek = capVal;
+  const campDur = durVal;
+  const daysTo  = daysToVal;
+  const growth  = isNaN(growthVal) ? 150 : growthVal;
+  const safety  = isNaN(safetyVal) ? 20  : safetyVal;
+
+  // ── Core demand calculation ──────────────────────────────────────
+  const baseDailyDemand   = SKU_BASE_DAILY[skuId] || 8;
+  const campaignMult      = 1 + growth / 100;
+  const dailyWithCampaign = baseDailyDemand * campaignMult;
+  const demandEst         = Math.round(dailyWithCampaign * campDur);
+  const ssUnits           = Math.round(demandEst * (safety / 100));
+  const stockRequired     = demandEst + ssUnits;
+
+  // Unidades que se pueden producir ANTES de que arranque la campaña
+  const capPerDay         = capWeek / 7;
+  const preStock          = Math.round(capPerDay * daysTo);   // producción en días previos
+  const stockAtStart      = stock + preStock;                  // stock real al día 1 de campaña
+  const deficit           = Math.max(0, stockRequired - stockAtStart);
+  const canMakeIt         = deficit === 0;                     // si preStock cubre, ya está
+
+  // Cuántos días de campaña cubre el stock al inicio (no el stock de hoy)
+  const coverageDays      = dailyWithCampaign > 0
+    ? Math.min(campDur, Math.floor(stockAtStart / dailyWithCampaign))
+    : campDur;
+
+  // Producción adicional necesaria más allá de lo pre-producido — siempre 0 si canMakeIt
+  const prodDaysNeeded    = deficit > 0 ? Math.ceil(deficit / capPerDay) : 0;
+  const daysAvailable     = daysTo;
+
+  const breakRiskPct      = stockAtStart < demandEst
+    ? Math.min(99, Math.round((1 - stockAtStart / demandEst) * 100))
+    : 0;
+
+  // ── Operational state ────────────────────────────────────────────
+  // Priority: if there's time to produce, it's Replenishment Needed, NOT Critical.
+  // Critical only when there's no time even with full production capacity.
+  let opState, opCls, opIcon;
+  if (deficit === 0) {
+    opState = 'Stable';               opCls = 'op-stable';        opIcon = '✅';
+  } else if (canMakeIt) {
+    opState = 'Replenishment Needed'; opCls = 'op-replenishment'; opIcon = '🔄';
+  } else if (!canMakeIt) {
+    // Can they produce ANYTHING useful in the time available?
+    const producibleUnits = Math.round(capPerDay * daysAvailable);
+    if (producibleUnits >= deficit * 0.5) {
+      opState = 'Capacity Limit';     opCls = 'op-capacity';      opIcon = '🏭';
+    } else {
+      opState = 'Critical';           opCls = 'op-critical';      opIcon = '🔴';
+    }
+  } else {
+    opState = 'Critical';             opCls = 'op-critical';      opIcon = '🔴';
+  }
+
+  // ── Recommendation ───────────────────────────────────────────────
+  let recTitle, recBody, recCls, recIcon;
+  if (opState === 'Stable') {
+    recIcon = '✅'; recCls = 'rec-go';
+    recTitle = 'Stock suficiente — podés lanzar la campaña';
+    recBody  = preStock > 0
+      ? `Hoy tenés ${stock}u + ${preStock}u que producís en los ${daysTo} días previos = ${stockAtStart}u al inicio. Cubre los ${campDur} días completos de campaña.`
+      : `Con ${stock}u tenés cobertura para los ${campDur} días completos de campaña. No se requiere orden de producción.`;
+  } else if (opState === 'Replenishment Needed') {
+    recIcon = '⚠️'; recCls = 'rec-warn';
+    recTitle = `Emitir orden de producción ahora — faltan ${deficit}u`;
+    recBody  = `Hoy: ${stock}u + producción previa (${daysTo}d × ${capPerDay.toFixed(1)}u/día) = ${stockAtStart}u al inicio. Necesitás ${stockRequired}u. Déficit: ${deficit}u. Llegaría a tiempo con ${daysAvailable - prodDaysNeeded} días de margen.`;
+  } else if (opState === 'Capacity Limit') {
+    const producible = Math.round(capPerDay * daysAvailable);
+    recIcon = '🏭'; recCls = 'rec-warn';
+    recTitle = `Capacidad insuficiente — podés producir ${producible}u pero necesitás ${deficit}u más`;
+    recBody  = `Con ${capWeek}u/sem en ${daysTo} días solo producís ${producible}u adicionales. Al inicio tendrías ${stock + producible}u de las ${stockRequired}u necesarias. Opciones: A) Subcontratar, B) Reducir descuento para moderar demanda, C) Limitar venta online.`;
+  } else {
+    recIcon = '🔴'; recCls = 'rec-stop';
+    recTitle = 'Quiebre de stock proyectado durante la campaña';
+    recBody  = `Al inicio de la campaña tendrías ${stockAtStart}u (${stock}u actuales + ${preStock}u producidas). Eso cubre ${coverageDays} de los ${campDur} días. Probabilidad de quiebre: ${breakRiskPct}%. Considerá retrasar la campaña o aumentar la capacidad.`;
+  }
+
+  // ── Render results ───────────────────────────────────────────────
+  const campName = document.getElementById('sim-camp-select').value
+    ? CAMPAIGNS.find(c => c.id === document.getElementById('sim-camp-select').value)?.name || ''
+    : '';
+
+  document.getElementById('sim-custom-results').style.display = 'block';
+  document.getElementById('sim-custom-title').textContent =
+    `Plan operativo — ${sku ? sku.name : skuId}${campName ? ' · ' + campName : ''}`;
+  document.getElementById('sim-custom-opstate').innerHTML =
+    `<span class="op-state ${opCls}">${opIcon} ${opState}</span>`;
+
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+  // Demanda estimada
+  setEl('res-demand',     demandEst + 'u');
+  setEl('res-demand-sub', `${baseDailyDemand}u/día × +${growth}% × ${campDur}d = ${demandEst}u · necesitás ${stockRequired}u`);
+  document.getElementById('res-demand').style.color = '#60a5fa';
+
+  // Stock requerido
+  setEl('res-required',     stockRequired + 'u');
+  setEl('res-required-sub', `Al inicio tendrás ${stockAtStart}u (${stock}u + ${preStock}u producidas) · buffer SS: ${ssUnits}u`);
+  document.getElementById('res-required').style.color = '#a78bfa';
+
+  // Riesgo de quiebre
+  const brEl = document.getElementById('res-breakrisk');
+  brEl.textContent = breakRiskPct + '%';
+  brEl.style.color = breakRiskPct > 60 ? '#f87171' : breakRiskPct > 20 ? '#facc15' : '#4ade80';
+  setEl('res-breakrisk-sub', breakRiskPct > 0
+    ? `${stockAtStart}u al inicio vs ${demandEst}u de demanda`
+    : 'stock al inicio cubre la campaña completa');
+
+  // Días de producción
+  const pdEl = document.getElementById('res-proddays');
+  pdEl.textContent = prodDaysNeeded > 0 ? prodDaysNeeded + 'd' : '—';
+  pdEl.style.color = !canMakeIt && prodDaysNeeded > 0 ? '#f87171' : '#fbbf24';
+  setEl('res-proddays-sub', prodDaysNeeded > 0
+    ? `${deficit}u ÷ ${capPerDay.toFixed(1)}u/día · tenés ${daysTo}d disponibles`
+    : preStock > 0 ? `${preStock}u producidas antes del inicio` : 'no se requiere producción adicional');
+
+  // Cobertura
+  const covEl = document.getElementById('res-coverage');
+  covEl.textContent = coverageDays + 'd';
+  covEl.style.color = coverageDays >= campDur ? '#4ade80' : coverageDays >= campDur * 0.5 ? '#facc15' : '#f87171';
+  setEl('res-coverage-sub', `de los ${campDur} días · con ${stockAtStart}u al inicio de campaña`);
+
+  // Orden sugerida
+  const unitCost = sku ? Math.round(sku.value / sku.forecast14) : 50;
+  const ordEl = document.getElementById('res-order');
+  ordEl.textContent = deficit > 0 ? deficit + 'u' : 'No requerida';
+  ordEl.style.color  = deficit > 0 ? '#fafafa' : '#4ade80';
+  setEl('res-order-sub', deficit > 0
+    ? `≈ $US ${(deficit * unitCost).toLocaleString()} · iniciar hoy`
+    : 'stock cubre la campaña completa');
+
+  // Recomendación
+  const recBox = document.getElementById('res-rec-box');
+  recBox.className = 'rec-box ' + recCls;
+  document.getElementById('res-rec-icon').textContent  = recIcon;
+  document.getElementById('res-rec-title').textContent = recTitle;
+  document.getElementById('res-rec-body').textContent  = recBody;
+
+  document.getElementById('sim-custom-results').scrollIntoView({ behavior:'smooth', block:'start' });
+  showToast(`✓ Plan calculado — ${sku ? sku.name : skuId}`, 'success');
+}
+
+</script>
+</body>
+</html>
