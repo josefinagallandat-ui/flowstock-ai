@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1609,7 +1609,6 @@ const SCENARIOS = {
   }
 };
 
-let simTimeout = [];
 
 
 async function runScenario(type) {
@@ -1699,78 +1698,6 @@ Tu rol es evaluar este escenario y dar una directiva ejecutiva en máximo 2 orac
       if (activeBtn) activeBtn.classList.remove('running');
     }
   }
-}
-  const sc = SCENARIOS[type];
-  appState.activeScenario = type;
-
-  // Reset pipeline
-  ['pipe-event','pipe-forecast','pipe-planner','pipe-monitor','pipe-director','pipe-hitl','pipe-exec'].forEach(id => {
-    const el = document.getElementById(id);
-    if(el) { el.classList.remove('active','done','warn'); }
-  });
-  ['arr-1','arr-2','arr-3','arr-4','arr-5','arr-6'].forEach(id => {
-    const el = document.getElementById(id);
-    if(el) el.classList.remove('active');
-  });
-
-  // Style active button
-  ['btn-sc1','btn-sc2','btn-sc3','btn-sc4'].forEach(b => document.getElementById(b).classList.remove('running'));
-  const btnMap = { campaign:'btn-sc1', supplier:'btn-sc2', budget:'btn-sc3', demand_drop:'btn-sc4' };
-  document.getElementById(btnMap[type]).classList.add('running');
-
-  // Clear log
-  const log = document.getElementById('event-log');
-  log.innerHTML = `<div class="log-gray log-entry">[sistema] Iniciando simulación: ${sc.label}</div><div class="log-gray log-entry">[sistema] ─────────────────────────────────</div>`;
-
-  // Hide HITL card
-  document.getElementById('hitl-approval-card').style.display = 'none';
-
-  sc.steps.forEach((step, i) => {
-    const t = setTimeout(() => {
-      // Activate pipeline node
-      const node = document.getElementById(step.icon);
-      if(node) { node.classList.add('active'); }
-      if(step.arr) {
-        const arr = document.getElementById(step.arr);
-        if(arr) arr.classList.add('active');
-      }
-
-      // Mark previous as done
-      if(i > 0) {
-        const prev = sc.steps[i-1];
-        const prevNode = document.getElementById(prev.icon);
-        if(prevNode) { prevNode.classList.remove('active'); prevNode.classList.add(prev.level==='error'||prev.level==='warn'?'warn':'done'); }
-      }
-
-      // Add log entry
-      const levelClass = { info:'log-info', warn:'log-warn', error:'log-error', success:'log-success' };
-      const entry = document.createElement('div');
-      entry.className = `log-entry ${levelClass[step.level]} flow-step`;
-      entry.textContent = step.msg;
-      log.appendChild(entry);
-      setTimeout(() => entry.classList.add('appear'), 50);
-      log.scrollTop = log.scrollHeight;
-
-      // Last step: show HITL or completion
-      if(i === sc.steps.length - 1) {
-        // Update metrics
-        updateSimMetrics(sc.metrics);
-
-        // Show HITL card for certain scenarios
-        if(type !== 'demand_drop') {
-          const hitlCard = document.getElementById('hitl-approval-card');
-          const hitlDetails = document.getElementById('hitl-details');
-          hitlDetails.innerHTML = `<strong>Escenario:</strong> ${sc.label}<br><strong>¿Por qué se requiere aprobación?</strong> El valor de la orden supera el límite automático o hay alta incertidumbre en el pronóstico.<br><strong>Confianza del pronóstico:</strong> ${sc.metrics.cs < 0.65 ? '<span style="color:#f87171;">Baja — campaña sin historial exacto</span>' : '<span style="color:#4ade80;">Aceptable</span>'}<br><strong>Acción sugerida:</strong> ${sc.metrics.order}`;
-          hitlCard.style.display = 'block';
-        }
-
-        // Update audit
-        addAuditEntry('Director', `SIM_SCENARIO_${type.toUpperCase()} · RS=${sc.metrics.rs} · CS=${sc.metrics.cs}`, sc.metrics.cs, sc.metrics.rs, type.includes('campaign')||type.includes('supplier')||type.includes('budget') ? 'PENDING HUMAN' : 'Director Agent', 'escalated');
-        showToast(`Escenario completado: ${sc.label.slice(2)}`, 'info');
-      }
-    }, step.delay);
-    simTimeout.push(t);
-  });
 }
 
 function updateSimMetrics(m) {
