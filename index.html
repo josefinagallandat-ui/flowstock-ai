@@ -1,4 +1,4 @@
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1133,7 +1133,7 @@ function renderDecisions() {
     const orderQty = Math.max(0, deficit);
     const orderValue = orderQty * (sku.value / sku.forecast14 * 2);
     const rs = calcRS(sku);
-    const cs = 0.65 + Math.random() * 0.3;
+    const cs = sku.cs || 0.75;
     const riskBadge = { critical:'badge-red', medium:'badge-yellow', low:'badge-green' };
     const opStateMap = {
       critical: { label:'Critical',             cls:'op-critical',       icon:'🔴' },
@@ -1878,6 +1878,11 @@ function init() {
   setTimeout(() => showToast('🔵 Sistema iniciado — 7 agentes activos', 'info'), 800);
   setTimeout(() => showToast('⚠ TEX-007: Stock crítico detectado', 'warning'), 2500);
   setTimeout(() => showToast('🤖 Agente Planificador calculando plan...', 'info'), 4500);
+
+  // Pre-render decisions and campaigns so they load instantly on first visit
+  renderDecisions();
+  renderCampaigns();
+  populateSimCampaigns();
 }
 
 // ==================== CONFIG ====================
