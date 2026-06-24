@@ -2050,10 +2050,10 @@ async function callDirector(prompt) {
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
-    return data.text || 'Sin respuesta del Director.';
+    return data.text || null;
   } catch (e) {
     console.error('Gemini error:', e);
-    return null; // falls back to deterministic
+    return null;
   }
 }
 // Based on Divino's past campaigns by category — P50 with confidence interval
