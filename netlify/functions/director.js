@@ -2,23 +2,23 @@ exports.handler = async function(event) {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method not allowed' };
   }
- 
+
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
   if (!GEMINI_API_KEY) {
     return { statusCode: 500, body: JSON.stringify({ error: 'API key not configured' }) };
   }
- 
+
   let body;
   try {
     body = JSON.parse(event.body);
   } catch {
     return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON' }) };
   }
- 
+
   const { prompt, context } = body;
- 
+
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -33,15 +33,15 @@ exports.handler = async function(event) {
       })
     }
   );
- 
+
   if (!response.ok) {
     const err = await response.text();
     return { statusCode: response.status, body: JSON.stringify({ error: err }) };
   }
- 
+
   const data = await response.json();
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sin respuesta';
- 
+
   return {
     statusCode: 200,
     headers: { 'Content-Type': 'application/json' },
